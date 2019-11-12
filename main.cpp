@@ -552,7 +552,8 @@ EventColumn EVENT_COLUMNS[] = {
         {"L1_MISS", "%*.1f", MEM_LOAD_RETIRED_L1_MISS, NoEvent},
         {"L1_REPL", "%*.1f", L1D_REPLACEMENT, NoEvent},
 
-        {"Unhalt_GHz", "%*.3f", CPU_CLK_UNHALTED_REF_TSC, DUMMY_EVENT_NANOS},
+        {"Unhalt_GHz", "%*.3f", CPU_CLK_UNHALTED_THREAD_ANY, DUMMY_EVENT_NANOS},
+        // {"Unhalt_GHz", "%*.3f", CPU_CLK_UNHALTED_REF_TSC, DUMMY_EVENT_NANOS},
 
         {"P0", "%*.2f", UOPS_DISPATCHED_PORT_PORT_0, NoEvent},
         {"P1", "%*.2f", UOPS_DISPATCHED_PORT_PORT_1, NoEvent},
