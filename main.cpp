@@ -544,6 +544,7 @@ EventColumn EVENT_COLUMNS[] = {
         {"INSTRU", "%*.2f", INST_RETIRED_ANY, NoEvent},
         {"IPC", "%*.2f", INST_RETIRED_ANY, CPU_CLK_UNHALTED_THREAD},
         {"UPC", "%*.2f", UOPS_ISSUED_ANY, CPU_CLK_UNHALTED_THREAD},
+        {"UOPS", "%*.2f", UOPS_ISSUED_ANY, NoEvent},
         {"MLP1A", "%*.2f", L1D_PEND_MISS_PENDING, CPU_CLK_UNHALTED_THREAD},
         {"MLP1B", "%*.2f", L1D_PEND_MISS_PENDING, L1D_PEND_MISS_PENDING_CYCLES},
         {"LAT", "%*.0f", L1D_PEND_MISS_PENDING, MEM_LOAD_RETIRED_L1_MISS},
@@ -552,7 +553,7 @@ EventColumn EVENT_COLUMNS[] = {
         {"L1_MISS", "%*.1f", MEM_LOAD_RETIRED_L1_MISS, NoEvent},
         {"L1_REPL", "%*.1f", L1D_REPLACEMENT, NoEvent},
 
-        {"Unhalt_GHz", "%*.3f", CPU_CLK_UNHALTED_THREAD_ANY, DUMMY_EVENT_NANOS},
+        {"Unhalt_GHz", "%*.3f", CPU_CLK_UNHALTED_THREAD, DUMMY_EVENT_NANOS},
         // {"Unhalt_GHz", "%*.3f", CPU_CLK_UNHALTED_REF_TSC, DUMMY_EVENT_NANOS},
 
         {"P0", "%*.2f", UOPS_DISPATCHED_PORT_PORT_0, NoEvent},
@@ -707,7 +708,9 @@ struct csv_printer : iprinter {
         printf("size");
         for (auto& test : tests) {
             for (auto col : columns) {
-                printf(",%s-%s", test.desc, col->get_header());
+                for (const char *aggr : {"median", "min", "max"}) {
+                    printf(",%s %s (%s)", test.name, col->get_header(), aggr);
+                }
             }
         }
         printf("\n");
@@ -726,29 +729,49 @@ struct csv_printer : iprinter {
                            const ColList& columns,
                            const ColList& post_columns) override {
 
-        std::vector<double> minvals(columns.size(), std::numeric_limits<double>::quiet_NaN());
-        std::vector<double> maxvals(columns.size(), std::numeric_limits<double>::quiet_NaN());
-
-        auto& result = results.at(results.size() / 2);  // median
-
+        // indexed by [column][result #]
+        std::vector<std::vector<double>> allvals(columns.size());
 
         for (size_t c = 0; c < columns.size(); c++) {
             auto& column = columns[c];
-            // column->print(stdout, result);
-            try {
-                double val = column->get_final_value(result);
-                printf(",%.6f", val);
-                if (!std::isnan(val)) {
-                    minvals[c] = std::fmin(minvals[c], val);
-                    maxvals[c] = std::fmax(maxvals[c], val);
+            for (auto& result : results) {
+                try {
+                    double val = column->get_final_value(result);
+                    if (std::isnan(val)) {
+                        throw ColFailed("nan");
+                    }
+                    allvals.at(c).push_back(val);
+                } catch (const ColFailed& failed) {
+                    fprintf(stderr, "Warning column %s failed, csv output might be incomplete", column->get_header());
+                    // column->print(stdout, failed.colval_);
                 }
-            } catch (const ColFailed& failed) {
-                fprintf(stderr, "Warning column %s failed, csv output might be incomplete", column->get_header());
-                column->print(stdout, failed.colval_);
             }
         }
+
+        for (auto& colresults : allvals) {
+            assert(colresults.size() == allvals.front().size());
+            std::sort(colresults.begin(), colresults.end());
+        }
+
+
+        for (auto& colresults : allvals) {
+            printf(",%.6f", colresults.at(colresults.size() / 2)); // median
+            printf(",%.6f", colresults.front());                   // min
+            printf(",%.6f", colresults.back());                    // max
+        }
+
+
     }
 };
+
+void hot_wait(size_t cycles) {
+    volatile int x = 0;
+    (void)x;
+    while (cycles--) {
+        x = 1;
+    }
+    _mm256_zeroupper();
+}
 
 void runOne(const test_description* test,
             const StampConfig& config,
@@ -756,9 +779,11 @@ void runOne(const test_description* test,
             const ColList& post_columns,
             const BenchArgs& bargs) {
     /* the main benchmark loop */
-    std::vector<BenchResults> result_array;
-    result_array.reserve(bargs.repeat_count);
+    std::vector<BenchResults> result_vector; //(bargs.repeat_count);
+    // BenchResults* result_array = new BenchResults[bargs.repeat_count];
+    hot_wait(1000000);
     for (size_t repeat = 0; repeat < bargs.repeat_count; repeat++) {
+        hot_wait(500000);
         Stamp before = config.stamp();
         for (size_t c = 0; c < bargs.iters; ++c) {
             auto args = bargs.get_args();
@@ -772,10 +797,12 @@ void runOne(const test_description* test,
         dprint("before: %s\n after: %s\n delta: %s\n", before.to_string().c_str(), after.to_string().c_str(),
                delta.to_string().c_str());
 
-        result_array.push_back(BenchResults{delta, bargs});
+        // result_array[repeat] = BenchResults{delta, bargs};
+        result_vector.push_back({delta, bargs});
     }
 
-    bargs.printer->print_one(test, result_array, columns, post_columns);
+    // std::vector<BenchResults> result_vector(result_array, result_array + bargs.repeat_count);
+    bargs.printer->print_one(test, result_vector, columns, post_columns);
 }
 
 int main(int argc, char** argv) {

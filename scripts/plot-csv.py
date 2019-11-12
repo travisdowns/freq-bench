@@ -111,10 +111,12 @@ def col_names_to_indices(requested, df):
 
 
 def extract_cols(cols, df, name):
-    vprint(name, "axis columns: ", cols)
+    vprint(name, " axis columns: ", cols)
     if (max(cols) >= len(df.columns)):
         print("Column", max(cols), "too large: input only has", len(df.columns), "columns", file=sys.stderr)
         exit(1)
+    if xi not in cols:
+        cols = [xi] + cols
     pruned = df.iloc[:, cols]
     vprint("----- pruned ", name, " df -----\n", pruned.head(), "\n---------------------")
     return pruned
@@ -130,8 +132,6 @@ if args.cols:
     cols = args.cols
 
 if cols:
-    if xi not in cols:
-        cols.insert(0, xi)
     df = extract_cols(cols, df, "primary")
 
 if args.clabels:
@@ -206,7 +206,7 @@ if args.ylim:
 
 # secondary axis handling
 if df2 is not None:
-    df2.plot(secondary_y=True, ax=ax, grid=True)
+    df2.plot(x=xi, secondary_y=True, ax=ax, grid=True)
 
 if (args.out):
     vprint("Saving figure to ", args.out, "...")
