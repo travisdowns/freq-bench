@@ -1,4 +1,6 @@
 
+#define ENABLE_TIMER 1
+
 #include <assert.h>
 #include "common-cxx.hpp"
 #include "cycle-timer.h"
@@ -138,7 +140,8 @@ void update_min_counts(bool first, event_counts* min, event_counts cur) {
 
 struct iprinter;
 
-struct BenchArgs {
+struct RunArgs {
+    double busy;
     char_span input;
     char* output;
     size_t repeat_count, iters;
@@ -379,7 +382,8 @@ uint64_t StampDelta::get_counter(const PerfEvent& event) const {
 
 struct BenchResults {
     StampDelta delta;
-    BenchArgs args;
+    RunArgs
+ args;
 
     BenchResults() = delete;
 
@@ -615,7 +619,7 @@ struct iprinter {
     virtual void print_end() {}
 
     /** called once before each row */
-    virtual void row_start(const std::string& firstcol) {}
+    virtual void row_start(const RunArgs& args) {}
 
     /** called once after each row */
     virtual void row_end() {}
@@ -630,8 +634,8 @@ struct stdout_printer : iprinter {
 
     std::string sizestr;
 
-    virtual void row_start(const std::string& firstcol) override {
-        sizestr = firstcol;
+    virtual void row_start(const RunArgs& args) override {
+        sizestr = std::to_string(args.input.size());
     }
 
     virtual void print_one(const test_description* test,
@@ -716,8 +720,9 @@ struct csv_printer : iprinter {
         printf("\n");
     }
 
-    virtual void row_start(const std::string& firstcol) override {
-        printf("%s", firstcol.c_str());
+    virtual void row_start(const RunArgs& args) override {
+        // printf("%s", firstcol.c_str());
+        printf("%.3f", args.busy);
     }
 
     virtual void row_end() override {
@@ -777,18 +782,33 @@ void runOne(const test_description* test,
             const StampConfig& config,
             const ColList& columns,
             const ColList& post_columns,
-            const BenchArgs& bargs) {
+            const RunArgs& bargs) {
     /* the main benchmark loop */
     std::vector<BenchResults> result_vector; //(bargs.repeat_count);
     // BenchResults* result_array = new BenchResults[bargs.repeat_count];
     hot_wait(1000000);
     for (size_t repeat = 0; repeat < bargs.repeat_count; repeat++) {
+        // LoggingTimer hwtimer("hot_wait");
         hot_wait(800000);
+        // hwtimer.printElapsed();
+
+        auto args = bargs.get_args();
         Stamp before = config.stamp();
+        // LoggingTimer btimer("body");
+        size_t busy_iters = 0;
+        double busy_fraction = bargs.busy;
+        SimpleTimer inner;
         for (size_t c = 0; c < bargs.iters; ++c) {
-            auto args = bargs.get_args();
             test->call_f(args);
         }
+        auto elapsed = inner.elapsedNanos();
+        SimpleTimer busy;
+        while (busy.elapsedNanos() < (int64_t)(elapsed * busy_fraction)) {
+            busy_iters++;
+        }
+        fprintf(stderr, "iters: %zu busy: %5.2f size: %zu busy_iters: %5.2f nanos: %zu\n", bargs.iters, bargs.busy,
+                bargs.input.size(), (double)busy_iters / bargs.iters, inner.elapsedNanos());
+        // btimer.printElapsed();
         Stamp after = config.stamp();
 
         StampDelta delta = config.delta(before, after);
@@ -816,11 +836,17 @@ int main(int argc, char** argv) {
     std::string collist  = getenv_generic<std::string>(
             "COLS", "Cycles,INSTRU,IPC,UPC,Unhalt_GHz");
 
-    size_t size_inc    = getenv_int("INC", 256 * 1024);
+    constexpr size_t SIZE_INC_DEFAULT = 256 * 1024;
+    constexpr size_t SIZE_STOP_DEFAULT = 20 * 1024 * 1024;
+    size_t size_inc    = getenv_int("INC", SIZE_INC_DEFAULT);
     size_t size_start  = getenv_int("START",  size_inc);
-    size_t size_stop   = getenv_int("STOP",  20 * 1024 * 1024);
+    size_t size_stop   = getenv_int("STOP",  SIZE_STOP_DEFAULT);
     int pincpu         = getenv_int("PINCPU",  0);
     size_t iters       = getenv_int("ITERS", 100);
+
+    if (size_inc != SIZE_INC_DEFAULT || size_stop != SIZE_STOP_DEFAULT) {
+        throw std::runtime_error("adjusting the size stop/stop/inc is not supported ");
+    }
 
     assert(iters > 0);
 
@@ -914,10 +940,14 @@ int main(int argc, char** argv) {
 
     printer->print_start();
 
-    for (size_t size = size_start; size <= size_stop; size += size_inc) {
-        printer->row_start(std::to_string(size));
+    size_t size = 4096;
+    assert(size <= size_stop);
+    // for (size_t size = size_start; size <= size_stop; size += size_inc) {
+    for (double busy = 0.; busy < 1.; busy += 0.01) {
+        RunArgs args{busy, input.first(size % 200000), output, repeat_count, iters, printer};
+        printer->row_start(args);
         for (auto t : tests) {
-            runOne(&t, config, columns, post_columns, {input.first(size % 20000), output, repeat_count, iters, printer});
+            runOne(&t, config, columns, post_columns, args);
         }
         printer->row_end();
     }
