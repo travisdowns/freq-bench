@@ -5,5 +5,6 @@
 
 memcpy_fn memcpy_stdlib;
 memcpy_fn memmove_stdlib;
+memcpy_fn repmovsb;
 
 #endif

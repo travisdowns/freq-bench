@@ -32,8 +32,7 @@ TEST_CASE("empty") {
 }
 
 /** call non-destructive */
-void call_nd(const test_description& algo, const char* in, char *out, size_t size) {
-    std::copy(in, in + size, out);
+void call(const test_description& algo, const char* in, char *out, size_t size) {
     algo.f({out, in, size});
 }
 
@@ -47,11 +46,11 @@ TEST_CASE("one") {
             continue;
         }
         SECTION(std::string(algo.name)) {
-            call_nd(algo, ina, out, 1);
+            call(algo, ina, out, 1);
             REQUIRE(ina[0] == 'a'); // no overwrite!
             CHECK(out[0] == 'a')    ;
 
-            call_nd(algo, inB, out, 1);
+            call(algo, inB, out, 1);
             REQUIRE(inB[0] == 'B'); // no overwrite!
             CHECK(out[0] == 'B');
         }
@@ -76,8 +75,8 @@ TEST_CASE("sequence") {
 
                 INFO("input = " << input);
 
-                call_nd(algo, input.data(), out_test.data(), s);
-                call_nd(ref, input.data(), out_ref.data(), s);
+                call(algo, input.data(), out_test.data(), s);
+                call(ref, input.data(), out_ref.data(), s);
 
                 REQUIRE(out_test == out_ref);
             }

@@ -16,3 +16,6 @@ __pycache__
 *.d
 /test
 /out*
+
+perf.data
+perf.data.*

@@ -783,12 +783,11 @@ void runOne(const test_description* test,
     // BenchResults* result_array = new BenchResults[bargs.repeat_count];
     hot_wait(1000000);
     for (size_t repeat = 0; repeat < bargs.repeat_count; repeat++) {
-        hot_wait(500000);
+        hot_wait(800000);
         Stamp before = config.stamp();
         for (size_t c = 0; c < bargs.iters; ++c) {
             auto args = bargs.get_args();
             test->call_f(args);
-            // _mm_lfence();  // prevent inter-iteration overlap
         }
         Stamp after = config.stamp();
 
@@ -918,7 +917,7 @@ int main(int argc, char** argv) {
     for (size_t size = size_start; size <= size_stop; size += size_inc) {
         printer->row_start(std::to_string(size));
         for (auto t : tests) {
-            runOne(&t, config, columns, post_columns, {input.first(size), output, repeat_count, iters, printer});
+            runOne(&t, config, columns, post_columns, {input.first(size % 20000), output, repeat_count, iters, printer});
         }
         printer->row_end();
     }

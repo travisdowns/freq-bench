@@ -17,3 +17,11 @@ void memcpy_stdlib(bench_args args) {
 void memmove_stdlib(bench_args args) {
     memmove(args.dest, args.source, args.size);
 }
+
+void repmovsb(bench_args args) {
+    asm volatile ("rep movsb\n"
+        : "+S"(args.source), "+D"(args.dest), "+c"(args.size)
+        :
+        : "memory"
+    );
+}
