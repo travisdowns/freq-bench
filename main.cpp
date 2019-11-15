@@ -798,9 +798,9 @@ void runOne(const test_description* test,
     hot_wait(1000000);
     auto args = bargs.get_args();
 
-    constexpr size_t test_cycles       = 1000 * 1000ull * 1000ull;
-    constexpr size_t period_cycles     =  100 * 1000ull * 1000ull;
-    constexpr size_t resolution_cycles =         100ull * 1000ull; // cycles
+    constexpr size_t test_cycles       =  10ull * 1000ull * 1000ull * 1000ull;
+    constexpr size_t period_cycles     =          1000ull * 1000ull * 1000ull;
+    constexpr size_t resolution_cycles =                    1000ull * 1000ull; // cycles
     for (size_t repeat = 0; repeat < bargs.repeat_count; repeat++) {
         _mm256_zeroupper();
 
@@ -814,6 +814,8 @@ void runOne(const test_description* test,
         Stamp prior_stamp = config.stamp();
         while (tsc < test_deadline) {
             // execute the payload instruction
+            _mm_lfence();
+            // printf("function\n");
             test->call_f(args);
 
             period_deadline += period_cycles;
@@ -822,6 +824,7 @@ void runOne(const test_description* test,
                 while ((tsc = rdtsc()) < sample_deadline) {
                     // busy wait
                 }
+                // printf("sample\n");
 
                 Stamp stamp = config.stamp();
                 StampDelta delta = config.delta(prior_stamp, stamp);
@@ -947,7 +950,7 @@ int main(int argc, char** argv) {
     cl_init(!summary);
 
     // run the whole test repeat_count times, each of which calls the test function iters times
-    unsigned repeat_count = 10;
+    unsigned repeat_count = 3;
 
     char_span input = alloc_random(size_stop, 0);
     char* output    = alloc(size_stop, 0);
