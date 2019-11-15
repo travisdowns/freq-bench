@@ -801,6 +801,7 @@ void runOne(const test_description* test,
     constexpr size_t test_cycles = 1000ull * 1000ull;
     constexpr size_t resolution_cycles = 10 * 1000; // cycles
     for (size_t repeat = 0; repeat < bargs.repeat_count; repeat++) {
+        _mm256_zeroupper();
 
         allresults.emplace_back();
         auto& results = allresults.back();
