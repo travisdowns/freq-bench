@@ -843,7 +843,7 @@ void runOne(const test_description* test,
             BenchResults br{result.delta, bargs};
             for (auto column : columns) {
                 double val = column->get_final_value(br);
-                printf(",%.1f", val);
+                printf(",%.3f", val);
             }
             printf("\n");
         }
@@ -971,13 +971,10 @@ int main(int argc, char** argv) {
     size_t size = 4096;
     assert(size <= size_stop);
     // for (size_t size = size_start; size <= size_stop; size += size_inc) {
-    for (double busy = 0.; busy < 1.; busy += 0.01) {
-        RunArgs args{busy, input.first(size % 200000), output, repeat_count, iters, printer};
-        // printer->row_start(args);
-        for (auto t : tests) {
-            runOne(&t, config, columns, post_columns, args);
-        }
-        // printer->row_end();
+    RunArgs args{0., input.first(size), output, repeat_count, iters, printer};
+    // printer->row_start(args);
+    for (auto t : tests) {
+        runOne(&t, config, columns, post_columns, args);
     }
 
     // printer->print_end();
