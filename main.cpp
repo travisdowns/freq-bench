@@ -779,6 +779,10 @@ void hot_wait(size_t cycles) {
     _mm256_zeroupper();
 }
 
+constexpr size_t test_cycles       =  100ull * 1000ull * 1000ull * 1000ull;
+constexpr size_t period_cycles     =   50ull * 1000ull * 1000ull * 1000ull;
+constexpr size_t resolution_cycles =                    1000ull * 1000ull; // cycles
+
 void runOne(const test_description* test,
             const StampConfig& config,
             const ColList& columns,
@@ -798,9 +802,7 @@ void runOne(const test_description* test,
     hot_wait(1000000);
     auto args = bargs.get_args();
 
-    constexpr size_t test_cycles       =  10ull * 1000ull * 1000ull * 1000ull;
-    constexpr size_t period_cycles     =          1000ull * 1000ull * 1000ull;
-    constexpr size_t resolution_cycles =                    1000ull * 1000ull; // cycles
+
     for (size_t repeat = 0; repeat < bargs.repeat_count; repeat++) {
         _mm256_zeroupper();
 
