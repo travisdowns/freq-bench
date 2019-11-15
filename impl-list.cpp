@@ -7,6 +7,7 @@ const test_description all_funcs[] = {
     {"memcpy_stdlib", memcpy_stdlib, "C stdlib memcpy", NONE},
     {"memmove_stdlib", memmove_stdlib, "C stdlib memmove", NONE},
     {"rep_movsb", repmovsb, "inline asm rep movsb", NONE},
+    {"vporzmm", vporzmm, "vpor zmm", NONE},
     {"dummy", dummy, "empty functin", NONE},
 };
 
