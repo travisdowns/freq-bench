@@ -829,13 +829,14 @@ void runOne(const test_description* test,
     // std::vector<BenchResults> result_vector(result_array, result_array + bargs.repeat_count);
     // bargs.printer->print_one(test, result_vector, columns, post_columns);
 
-    printf("repeat,tsc");
-    for (auto col : columns) {
-        printf(",%s %s", test->name, col->get_header());
-    }
-    printf("\n");
 
     for (size_t repeat = 0; repeat < bargs.repeat_count; repeat++) {
+        printf("repeat,tsc");
+        for (auto col : columns) {
+            printf(",%s %s", test->name, col->get_header());
+        }
+        printf("\n");
+
         auto& results = allresults.at(repeat);
 
         for (auto& result : results) {
