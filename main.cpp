@@ -779,9 +779,9 @@ void hot_wait(size_t cycles) {
     _mm256_zeroupper();
 }
 
-constexpr size_t test_cycles       =  100ull * 1000ull * 1000ull * 1000ull;
-constexpr size_t period_cycles     =   50ull * 1000ull * 1000ull * 1000ull;
-constexpr size_t resolution_cycles =                    1000ull * 1000ull; // cycles
+size_t test_cycles      ;
+size_t period_cycles    ;
+size_t resolution_cycles;
 
 void runOne(const test_description* test,
             const StampConfig& config,
@@ -883,6 +883,12 @@ int main(int argc, char** argv) {
     int pincpu         = getenv_int("PINCPU",  0);
     size_t iters       = getenv_int("ITERS", 100);
 
+    test_cycles       = getenv_longlong("TEST_CYC",  10ull * 1000ull * 1000ull * 1000ull);
+    period_cycles     = getenv_longlong("TEST_PER",   1ull * 1000ull * 1000ull * 1000ull);
+    resolution_cycles = getenv_longlong("TEST_RES",                    1000ull * 1000ull);
+
+    // size
+
     if (size_inc != SIZE_INC_DEFAULT || size_stop != SIZE_STOP_DEFAULT) {
         throw std::runtime_error("adjusting the size stop/stop/inc is not supported ");
     }
@@ -968,6 +974,11 @@ int main(int argc, char** argv) {
         fprintf(stderr, "input hash  : %10x\n", XXH32(input.data(), input.size() * sizeof(char), 0));
         fprintf(stderr, "output align: %10zu\n", get_alignment(output));
         fprintf(stderr, "rel align   : %10zu\n", relalign(input.data(), output));
+        fprintf(stderr, "tsc freq    : %10.1f MHz\n", get_tsc_freq(false) / 1000000.);
+        fprintf(stderr, "test period : %10.6f s\n", 1. * test_cycles       / get_tsc_freq(false));
+        fprintf(stderr, "duty period : %10.6f s\n", 1. * period_cycles     / get_tsc_freq(false));
+        fprintf(stderr, "test sample : %10.6f s\n", 1. * resolution_cycles / get_tsc_freq(false));
+
     }
 
     if (!summary) {

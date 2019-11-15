@@ -30,7 +30,7 @@ struct envvar_not_found : public std::runtime_error {
 
 /**
  * Gets the value of the given environment variable, throws an
- * exception if not found. Usually you'll want the version that 
+ * exception if not found. Usually you'll want the version that
  * takes a default value.
  */
 template <typename T>
@@ -60,6 +60,13 @@ int getenv_int(const char *var, int def) {
     const char *val = getenv(var);
     return val ? atoi(val) : def;
 }
+
+long long getenv_longlong(const char *var, long long def) {
+    const char *val = getenv(var);
+    return val ? atoll(val) : def;
+}
+
+
 
 bool getenv_bool(const char *var) {
     return getenv_generic<bool>(var, false);
