@@ -25,3 +25,5 @@ void repmovsb(bench_args args) {
         : "memory"
     );
 }
+
+void dummy(bench_args args) {}
