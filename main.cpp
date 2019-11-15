@@ -799,7 +799,7 @@ void runOne(const test_description* test,
     std::vector<std::vector<TscResult>> allresults;
     allresults.reserve(bargs.repeat_count);
     // BenchResults* result_array = new BenchResults[bargs.repeat_count];
-    hot_wait(1000000);
+
     auto args = bargs.get_args();
 
 
@@ -809,6 +809,8 @@ void runOne(const test_description* test,
         allresults.emplace_back();
         auto& results = allresults.back();
         results.reserve(test_cycles / resolution_cycles + 2);
+
+        hot_wait(1000000000ull);
 
         uint64_t test_deadline = rdtsc() + test_cycles;
 
@@ -883,8 +885,8 @@ int main(int argc, char** argv) {
     int pincpu         = getenv_int("PINCPU",  0);
     size_t iters       = getenv_int("ITERS", 100);
 
-    test_cycles       = getenv_longlong("TEST_CYC",  10ull * 1000ull * 1000ull * 1000ull);
-    period_cycles     = getenv_longlong("TEST_PER",   1ull * 1000ull * 1000ull * 1000ull);
+    test_cycles       = getenv_longlong("TEST_CYC",   1ull * 1000ull * 1000ull * 1000ull);
+    period_cycles     = getenv_longlong("TEST_PER",           100ull * 1000ull * 1000ull);
     resolution_cycles = getenv_longlong("TEST_RES",                    1000ull * 1000ull);
 
     // size
