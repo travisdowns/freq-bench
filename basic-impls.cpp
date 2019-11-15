@@ -27,7 +27,14 @@ void repmovsb(bench_args args) {
 }
 
 void vporzmm(bench_args args) {
-    asm volatile ("vpord %zmm0, %zmm0, %zmm0");
+    asm volatile ("vpord %zmm0, %zmm0, %zmm0\n");
+}
+
+void vporzmm_vz(bench_args args) {
+    asm volatile (
+        "vpord %zmm0, %zmm0, %zmm0\n"
+        "vzeroupper\n"
+    );
 }
 
 void dummy(bench_args args) {}
