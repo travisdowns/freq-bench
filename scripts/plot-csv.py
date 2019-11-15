@@ -111,28 +111,29 @@ def col_names_to_indices(requested, df):
 
 
 def extract_cols(cols, df, name):
-    vprint(name, " axis columns: ", cols)
+    vprint(name, "axis columns: ", cols)
+    if (not cols): return None
     if (max(cols) >= len(df.columns)):
         print("Column", max(cols), "too large: input only has", len(df.columns), "columns", file=sys.stderr)
         exit(1)
-    if xi not in cols:
-        cols = [xi] + cols
+    # ensure xi is the first thing in the column list
+    if xi in cols: cols.remove(xi)
+    cols = [xi] + cols
+    vprint(name, " final columns: ", cols)
     pruned = df.iloc[:, cols]
     vprint("----- pruned ", name, " df -----\n", pruned.head(), "\n---------------------")
     return pruned
 
-df2 = extract_cols(args.cols2, df, "secondary") if args.cols2 else None
-
-cols = None
 
 if args.cols_by_name:
     cols = col_names_to_indices(args.cols_by_name, df)
-
-if args.cols:
+elif args.cols:
     cols = args.cols
+else:
+    cols = list(range(len(df.columns)))
 
-if cols:
-    df = extract_cols(cols, df, "primary")
+df = extract_cols(cols, df, "primary")
+df2 = extract_cols(args.cols2, df, "secondary")
 
 if args.clabels:
     if len(df.columns) != len(args.clabels):
@@ -172,10 +173,10 @@ if args.color_map:
 # set x labels to strings so we don't get a scatter plot, and
 # so the x labels are not themselves plotted
 if (args.scatter):
-    ax = df.plot.line(x=xi, title=args.title, figsize=(12,8), grid=True, linestyle='none', marker='.')
+    ax = df.plot.line(x=0, title=args.title, figsize=(12,8), grid=True, linestyle='none', marker='.')
 else:
     # df.iloc[:,xi] = df.iloc[:,xi].apply(str)
-    ax = df.plot.line(x=xi, title=args.title, figsize=(12,8), grid=True, marker=args.marker)
+    ax = df.plot.line(x=0, title=args.title, figsize=(12,8), grid=True, marker=args.marker)
 
 # this sets the ticks explicitly to one per x value, which means that
 # all x values will be shown, but the x-axis could be crowded if there
@@ -206,7 +207,7 @@ if args.ylim:
 
 # secondary axis handling
 if df2 is not None:
-    df2.plot(x=xi, secondary_y=True, ax=ax, grid=True)
+    df2.plot(x=0, secondary_y=True, ax=ax, grid=True)
 
 if (args.out):
     vprint("Saving figure to ", args.out, "...")
