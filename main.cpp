@@ -14,6 +14,7 @@
 #include "perf-timer.hpp"
 #include "randutil.hpp"
 #include "string-instrument.hpp"
+#include "tsc-support.hpp"
 #include "xxHash/xxhash.h"
 
 #include <inttypes.h>
@@ -785,43 +786,70 @@ void runOne(const test_description* test,
             const RunArgs& bargs) {
     /* the main benchmark loop */
     std::vector<BenchResults> result_vector; //(bargs.repeat_count);
+
+    struct TscResult {
+        uint64_t tsc;
+        StampDelta delta;
+    };
+
+    std::vector<std::vector<TscResult>> allresults;
+    allresults.reserve(bargs.repeat_count);
     // BenchResults* result_array = new BenchResults[bargs.repeat_count];
     hot_wait(1000000);
+    auto args = bargs.get_args();
+
+    constexpr size_t test_cycles = 1000ull * 1000ull;
+    constexpr size_t resolution_cycles = 10 * 1000; // cycles
     for (size_t repeat = 0; repeat < bargs.repeat_count; repeat++) {
-        // LoggingTimer hwtimer("hot_wait");
-        hot_wait(800000);
-        // hwtimer.printElapsed();
 
-        auto args = bargs.get_args();
-        Stamp before = config.stamp();
-        // LoggingTimer btimer("body");
-        size_t busy_iters = 0;
-        double busy_fraction = bargs.busy;
-        SimpleTimer inner;
-        for (size_t c = 0; c < bargs.iters; ++c) {
+        allresults.emplace_back();
+        auto& results = allresults.back();
+        results.reserve(test_cycles / resolution_cycles + 2);
+
+        uint64_t test_deadline = rdtsc() + test_cycles;
+
+        uint64_t tsc = rdtsc(), start_tsc = tsc, sample_deadline = tsc;
+        Stamp prior_stamp = config.stamp();
+        while (tsc < test_deadline) {
+            // execute the payload instruction
             test->call_f(args);
+
+            sample_deadline += resolution_cycles;
+            while ((tsc = rdtsc()) < sample_deadline) {
+                // busy wait
+            }
+
+            Stamp stamp = config.stamp();
+            StampDelta delta = config.delta(prior_stamp, stamp);
+            results.push_back({tsc - start_tsc, delta});
+            prior_stamp = stamp;
         }
-        auto elapsed = inner.elapsedNanos();
-        SimpleTimer busy;
-        while (busy.elapsedNanos() < (int64_t)(elapsed * busy_fraction)) {
-            busy_iters++;
-        }
-        fprintf(stderr, "iters: %zu busy: %5.2f size: %zu busy_iters: %5.2f nanos: %zu\n", bargs.iters, bargs.busy,
-                bargs.input.size(), (double)busy_iters / bargs.iters, inner.elapsedNanos());
-        // btimer.printElapsed();
-        Stamp after = config.stamp();
-
-        StampDelta delta = config.delta(before, after);
-
-        dprint("before: %s\n after: %s\n delta: %s\n", before.to_string().c_str(), after.to_string().c_str(),
-               delta.to_string().c_str());
-
-        // result_array[repeat] = BenchResults{delta, bargs};
-        result_vector.push_back({delta, bargs});
     }
 
     // std::vector<BenchResults> result_vector(result_array, result_array + bargs.repeat_count);
-    bargs.printer->print_one(test, result_vector, columns, post_columns);
+    // bargs.printer->print_one(test, result_vector, columns, post_columns);
+
+    printf("repeat,tsc");
+    for (auto col : columns) {
+        printf(",%s %s", test->name, col->get_header());
+    }
+    printf("\n");
+
+    for (size_t repeat = 0; repeat < bargs.repeat_count; repeat++) {
+        auto& results = allresults.at(repeat);
+
+        for (auto& result : results) {
+            printf("%zu,%zu", repeat, result.tsc);
+            BenchResults br{result.delta, bargs};
+            for (auto column : columns) {
+                double val = column->get_final_value(br);
+                printf(",%.1f", val);
+            }
+            printf("\n");
+        }
+    }
+
+
 }
 
 int main(int argc, char** argv) {
@@ -938,19 +966,19 @@ int main(int argc, char** argv) {
 
     auto printer = do_csv ? (iprinter*)new csv_printer(tests, columns) : new stdout_printer;
 
-    printer->print_start();
+    // printer->print_start();
 
     size_t size = 4096;
     assert(size <= size_stop);
     // for (size_t size = size_start; size <= size_stop; size += size_inc) {
     for (double busy = 0.; busy < 1.; busy += 0.01) {
         RunArgs args{busy, input.first(size % 200000), output, repeat_count, iters, printer};
-        printer->row_start(args);
+        // printer->row_start(args);
         for (auto t : tests) {
             runOne(&t, config, columns, post_columns, args);
         }
-        printer->row_end();
+        // printer->row_end();
     }
 
-    printer->print_end();
+    // printer->print_end();
 }
