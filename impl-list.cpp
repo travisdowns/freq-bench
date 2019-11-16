@@ -7,9 +7,13 @@ const test_description all_funcs[] = {
     {"memcpy_stdlib", memcpy_stdlib, "C stdlib memcpy", NONE},
     {"memmove_stdlib", memmove_stdlib, "C stdlib memmove", NONE},
     {"rep_movsb", repmovsb, "inline asm rep movsb", NONE},
+    {"vporxmm",    vporxmm,    "vpor xmm", NONE},
+    {"vporymm",    vporymm,    "vpor ymm", NONE},
     {"vporzmm",    vporzmm,    "vpor zmm", NONE},
+    {"vporxmm_vz", vporxmm_vz, "vpor xmm w/ vzeroupper", NONE},
+    {"vporymm_vz", vporymm_vz, "vpor ymm w/ vzeroupper", NONE},
     {"vporzmm_vz", vporzmm_vz, "vpor zmm w/ vzeroupper", NONE},
-    {"dummy", dummy, "empty functin", NONE},
+    {"dummy", dummy, "empty function", NONE},
 };
 
 auto b() -> decltype(get_all().begin()) {

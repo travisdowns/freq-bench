@@ -26,8 +26,30 @@ void repmovsb(bench_args args) {
     );
 }
 
+void vporxmm(bench_args args) {
+    asm volatile ("vpor %xmm0, %xmm0, %xmm0\n");
+}
+
+void vporymm(bench_args args) {
+    asm volatile ("vpor %ymm0, %ymm0, %ymm0\n");
+}
+
 void vporzmm(bench_args args) {
     asm volatile ("vpord %zmm0, %zmm0, %zmm0\n");
+}
+
+void vporxmm_vz(bench_args args) {
+    asm volatile (
+        "vpor %xmm0, %xmm0, %xmm0\n"
+        "vzeroupper\n"
+    );
+}
+
+void vporymm_vz(bench_args args) {
+    asm volatile (
+        "vpor %ymm0, %ymm0, %ymm0\n"
+        "vzeroupper\n"
+    );
 }
 
 void vporzmm_vz(bench_args args) {
