@@ -873,7 +873,7 @@ int main(int argc, char** argv) {
 
     test_cycles       = getenv_longlong("TEST_CYC",   1ull * 1000ull * 1000ull * 1000ull);
     period_cycles     = getenv_longlong("TEST_PER",           100ull * 1000ull * 1000ull);
-    resolution_cycles = getenv_longlong("TEST_RES",                       1ull * 1000ull);
+    resolution_cycles = getenv_longlong("TEST_RES",                      10ull * 1000ull);
 
     // size
 
