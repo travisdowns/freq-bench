@@ -165,10 +165,9 @@ class Stamp {
 
     cl_timepoint cycle_stamp;
     event_counts counters;
-    string_metrics::Map string_map;
 
-    Stamp(cl_timepoint cycle_stamp, event_counts counters, string_metrics::Map string_map)
-        : cycle_stamp{cycle_stamp}, counters{counters}, string_map{std::move(string_map)} {}
+    Stamp(cl_timepoint cycle_stamp, event_counts counters)
+        : cycle_stamp{cycle_stamp}, counters{counters} {}
 
 public:
     std::string to_string() { return std::string("cs: ") + std::to_string(this->cycle_stamp.nanos); }
@@ -198,17 +197,15 @@ class StampDelta {
     // not cycles: has arbitrary units
     cl_interval cycle_delta;
     event_counts counters;
-    string_metrics::Map string_map;
 
     StampDelta(const StampConfig& config,
                cl_interval cycle_delta,
-               event_counts counters,
-               string_metrics::Map string_map)
+               event_counts counters)
         : empty(false),
           config{&config},
           cycle_delta{cycle_delta},
-          counters{std::move(counters)},
-          string_map{std::move(string_map)} {}
+          counters{std::move(counters)}
+          {}
 
 public:
     /**
@@ -216,7 +213,7 @@ public:
      * never be returned from functions like min(), unless both arguments
      * are empty. Handy for accumulation patterns.
      */
-    StampDelta() : empty(true), config{nullptr}, cycle_delta{}, counters{}, string_map{} {}
+    StampDelta() : empty(true), config{nullptr}, cycle_delta{}, counters{} {}
 
     double get_nanos() const {
         assert(!empty);
@@ -235,10 +232,6 @@ public:
 
     uint64_t get_counter(const PerfEvent& event) const;
 
-    const string_metrics::Map& get_string_metrics() const { return string_map; }
-
-    std::string to_string() { return std::string("cd: ") + std::to_string(cycle_delta.nanos); }
-
     /**
      * Return a new StampDelta with every contained element having the minimum
      * value between the left and right arguments.
@@ -255,8 +248,7 @@ public:
             return l;
         assert(l.config == r.config);
         event_counts new_counts            = event_counts::apply(l.counters, r.counters, f);
-        string_metrics::Map new_string_map = string_metrics::Map::apply(l.string_map, r.string_map, f);
-        return StampDelta{*l.config, {f(l.cycle_delta.nanos, r.cycle_delta.nanos)}, new_counts, new_string_map};
+        return StampDelta{*l.config, {f(l.cycle_delta.nanos, r.cycle_delta.nanos)}, new_counts};
     }
 
     static StampDelta min(const StampDelta& l, const StampDelta& r) { return apply(l, r, min_functor{}); }
@@ -340,7 +332,6 @@ public:
 class StampConfig {
 public:
     EventManager em;
-    bool do_string_intrument = true;
 
     /**
      * After updating the config to the state you want, call prepare() once which
@@ -353,11 +344,7 @@ public:
     Stamp stamp() const {
         auto cycle_stamp = cl_now();
         auto counters    = read_counters();
-        string_metrics::Map string_map;
-        if (do_string_intrument) {
-            string_map = string_metrics::global();
-        }
-        return Stamp(cycle_stamp, counters, string_map);
+        return Stamp(cycle_stamp, counters);
     }
 
     /**
@@ -366,8 +353,7 @@ public:
      */
     StampDelta delta(const Stamp& before, const Stamp& after) const {
         return StampDelta(*this, cl_delta(before.cycle_stamp, after.cycle_stamp),
-                          calc_delta(before.counters, after.counters),
-                          string_metrics::Map::delta(before.string_map, after.string_map));
+                          calc_delta(before.counters, after.counters));
     }
 };
 
@@ -808,15 +794,15 @@ void runOne(const test_description* test,
 
         allresults.emplace_back();
         auto& results = allresults.back();
-        results.reserve(test_cycles / resolution_cycles + 2);
+        const size_t samples_max = test_cycles / resolution_cycles + 2;
+        results.resize(samples_max);
 
         hot_wait(1000000000ull);
 
-        uint64_t test_deadline = rdtsc() + test_cycles;
-
         uint64_t tsc = rdtsc(), start_tsc = tsc, sample_deadline = tsc, period_deadline = tsc;
         Stamp prior_stamp = config.stamp();
-        while (tsc < test_deadline) {
+        size_t rpos = 0;
+        while (rpos < samples_max) {
             // execute the payload instruction
             _mm_lfence();
             // printf("function\n");
@@ -832,7 +818,7 @@ void runOne(const test_description* test,
 
                 Stamp stamp = config.stamp();
                 StampDelta delta = config.delta(prior_stamp, stamp);
-                results.push_back({tsc - start_tsc, delta});
+                results[rpos++] = {tsc - start_tsc, delta};
                 prior_stamp = stamp;
             }
         }
@@ -887,7 +873,7 @@ int main(int argc, char** argv) {
 
     test_cycles       = getenv_longlong("TEST_CYC",   1ull * 1000ull * 1000ull * 1000ull);
     period_cycles     = getenv_longlong("TEST_PER",           100ull * 1000ull * 1000ull);
-    resolution_cycles = getenv_longlong("TEST_RES",                    1000ull * 1000ull);
+    resolution_cycles = getenv_longlong("TEST_RES",                       1ull * 1000ull);
 
     // size
 
@@ -1002,4 +988,6 @@ int main(int argc, char** argv) {
     }
 
     // printer->print_end();
+    fprintf(stderr, "Benchmark done\n");
+    fflush(stderr);
 }

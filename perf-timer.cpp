@@ -37,7 +37,7 @@ std::vector<event_ctx> contexts;
  * Defaults to false.
  */
 void set_verbose(bool v) {
-    verbose = v;    
+    verbose = v;
 }
 
 #define vprint(...) do { if (verbose) fprintf(stderr, __VA_ARGS__ ); } while(false)
@@ -50,7 +50,7 @@ void printf_perf_attr(FILE *f, const struct perf_event_attr* attr) {
     char* pmu = resolve_pmu(attr->type);
     fputs(pmu ? pmu : "???", f);
     bool comma = false;
-    
+
 
 #define APPEND_IF_NZ1(field) APPEND_IF_NZ2(field,field)
 #define APPEND_IF_NZ2(name, field) if (attr->field) { \
@@ -71,7 +71,7 @@ void printf_perf_attr(FILE *f, const struct perf_event_attr* attr) {
 void print_caps(FILE *f, const struct rdpmc_ctx *ctx) {
     fprintf(f, "R%d UT%d ZT%d index: 0x%x",
         (int)ctx->buf->cap_user_rdpmc, (int)ctx->buf->cap_user_time, (int)ctx->buf->cap_user_time_zero, ctx->buf->index);
-    
+
 #define APPEND_CTX_FIELD(field) fprintf(f, " " #field "=0x%lx", (long unsigned)ctx->buf->field);
 
     APPEND_CTX_FIELD(pmc_width);
@@ -100,7 +100,7 @@ std::vector<bool> setup_counters(const std::vector<PerfEvent>& events) {
         bool ok = false;
 
         if (contexts.size() == MAX_COUNTERS) {
-            fprintf(stderr, "Unable to program event %s, MAX_COUNTERS (%d) reached\n", e.name, MAX_COUNTERS);
+            fprintf(stderr, "Unable to program event %s, MAX_COUNTERS (%zu) reached\n", e.name, MAX_COUNTERS);
         } else {
             // fprintf(stderr, "Enabling event %s (%s)\n", e->short_name, e->name);
             struct perf_event_attr attr = {};
@@ -143,7 +143,7 @@ std::vector<bool> setup_counters(const std::vector<PerfEvent>& events) {
             vprint("\n");
         }
     }
-    
+
     assert(results.size() == events.size());
     return results;
 }
@@ -163,7 +163,7 @@ unsigned long long rdpmc_readx(event_ctx *ctx)
 
 	u64 val;
 	unsigned seq;
-	u64 offset, time_running, time_enabled; 
+	u64 offset, time_running, time_enabled;
 	struct perf_event_mmap_page *buf = ctx->jevent_ctx.buf;
 	unsigned index;
     bool lockok = true;
@@ -221,9 +221,10 @@ size_t num_counters() {
     return contexts.size();
 }
 
-event_counts calc_delta(event_counts before, event_counts after) {
-    event_counts ret = {};
-    for (size_t i=0; i < MAX_COUNTERS; i++) {
+event_counts calc_delta(event_counts before, event_counts after, size_t max_event) {
+    event_counts ret(uninit_tag{});
+    size_t limit = std::min(max_event, MAX_COUNTERS);
+    for (size_t i=0; i < limit; i++) {
         ret.counts[i] = after.counts[i] - before.counts[i];
     }
     return ret;
