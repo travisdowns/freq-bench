@@ -809,7 +809,7 @@ void runOne(const test_description* test,
             test->call_f(args);
 
             period_deadline += period_cycles;
-            while (tsc < period_deadline) {
+            while (tsc < period_deadline && rpos < samples_max) {
                 sample_deadline += resolution_cycles;
                 while ((tsc = rdtsc()) < sample_deadline) {
                     // busy wait
