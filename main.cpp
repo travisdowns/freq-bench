@@ -39,6 +39,8 @@ static bool summary;
 static bool debug;
 static bool do_csv;
 
+static uint64_t tsc_freq;
+
 using velem = std::vector<char>;
 
 #define vprint(...)                       \
@@ -829,7 +831,7 @@ void runOne(const test_description* test,
 
 
     for (size_t repeat = 0; repeat < bargs.repeat_count; repeat++) {
-        printf("repeat,tsc");
+        printf("repeat,tsc,us");
         for (auto col : columns) {
             printf(",%s %s", test->name, col->get_header());
         }
@@ -838,7 +840,7 @@ void runOne(const test_description* test,
         auto& results = allresults.at(repeat);
 
         for (auto& result : results) {
-            printf("%zu,%zu", repeat, result.tsc);
+            printf("%zu,%zu,%.3f", repeat, result.tsc, 1000000. * result.tsc / tsc_freq);
             BenchResults br{result.delta, bargs};
             for (auto column : columns) {
                 double val = column->get_final_value(br);
@@ -951,6 +953,8 @@ int main(int argc, char** argv) {
     char_span input = alloc_random(size_stop, 0);
     char* output    = alloc(size_stop, 0);
 
+    tsc_freq = get_tsc_freq(false);
+
     if (verbose) {
         fprintf(stderr, "inner loops : %10zu\n", iters);
         fprintf(stderr, "pinned cpu  : %10d\n", pincpu);
@@ -963,9 +967,9 @@ int main(int argc, char** argv) {
         fprintf(stderr, "output align: %10zu\n", get_alignment(output));
         fprintf(stderr, "rel align   : %10zu\n", relalign(input.data(), output));
         fprintf(stderr, "tsc freq    : %10.1f MHz\n", get_tsc_freq(false) / 1000000.);
-        fprintf(stderr, "test period : %10.6f s\n", 1. * test_cycles       / get_tsc_freq(false));
-        fprintf(stderr, "duty period : %10.6f s\n", 1. * period_cycles     / get_tsc_freq(false));
-        fprintf(stderr, "test sample : %10.6f s\n", 1. * resolution_cycles / get_tsc_freq(false));
+        fprintf(stderr, "test period : %10.3f us\n", 1000000. * test_cycles       / tsc_freq);
+        fprintf(stderr, "duty period : %10.3f us\n", 1000000. * period_cycles     / tsc_freq);
+        fprintf(stderr, "test sample : %10.3f us\n", 1000000. * resolution_cycles / tsc_freq);
 
     }
 

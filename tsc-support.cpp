@@ -27,7 +27,7 @@ uint64_t get_tsc_from_cpuid_inner() {
     }
 
     auto cpuid15 = cpuid(0x15);
-    std::printf("cpuid = %s\n", cpuid15.to_string().c_str());
+    // std::printf("cpuid = %s\n", cpuid15.to_string().c_str());
 
     if (cpuid15.ecx) {
         // the crystal frequency was present in ECX
@@ -37,7 +37,7 @@ uint64_t get_tsc_from_cpuid_inner() {
     // ecx == 0 means we have to use a hard-coded frequency based on the model and table provided by Intel
     // in 18.7.3
     auto family = get_family_model();
-    std::printf("cpu: %s\n", family.to_string().c_str());
+    // std::printf("cpu: %s\n", family.to_string().c_str());
 
 
     if (family.family == 6) {
