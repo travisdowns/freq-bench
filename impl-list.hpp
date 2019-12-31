@@ -15,12 +15,14 @@ enum AlgoFlags {
     /** algo is too slow to run at default array sizes */
     SLOW         = 1 << 0,
     /** algo doesn't return the right result (e.g., because it is a dummy for testing) */
-    INCORRECT    = 1 << 1
+    INCORRECT    = 1 << 1,
+    NO_VZ        = 1 << 2,
 };
 
 struct test_description {
     const char *name;
     memcpy_fn *f;
+    uint64_t payload_period;
     const char *desc;
     AlgoFlags flags;
 

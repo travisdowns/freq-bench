@@ -59,4 +59,21 @@ void vporzmm_vz(bench_args args) {
     );
 }
 
+/**
+ * 100 dependent vpors
+ */
+#define MAKE_MANY(instr,reg) \
+void vpor##reg##_vz100(bench_args args) {  \
+    asm volatile (                     \
+        ".rept 1000\n\t"               \
+        #instr " %" #reg "0, %" #reg "0, %" #reg "0\n\t" \
+        ".endr\n\t"                    \
+        "vzeroupper\n\t"               \
+    );                                 \
+}
+
+MAKE_MANY(vpor,  xmm)
+MAKE_MANY(vpor,  ymm)
+MAKE_MANY(vpord, zmm)
+
 void dummy(bench_args args) {}

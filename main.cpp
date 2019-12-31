@@ -3,7 +3,6 @@
 
 #include <assert.h>
 #include "common-cxx.hpp"
-#include "cycle-timer.h"
 #include "env.hpp"
 #include "huge-alloc.h"
 #include "impl-list.hpp"
@@ -37,7 +36,7 @@ using namespace env;
 static bool verbose;
 static bool summary;
 static bool debug;
-static bool do_csv;
+static bool prefix_cols;
 
 static uint64_t tsc_freq;
 
@@ -148,7 +147,6 @@ struct RunArgs {
     char_span input;
     char* output;
     size_t repeat_count, iters;
-    iprinter* printer;
 
     /**
      * Get the intersect args appropriate for the given iteration.
@@ -165,14 +163,14 @@ class StampConfig;
 class Stamp {
     friend StampConfig;
 
-    cl_timepoint cycle_stamp;
+    uint64_t tsc;
     event_counts counters;
 
-    Stamp(cl_timepoint cycle_stamp, event_counts counters)
-        : cycle_stamp{cycle_stamp}, counters{counters} {}
+    Stamp(uint64_t tsc, event_counts counters)
+        : tsc{tsc}, counters{counters} {}
 
 public:
-    std::string to_string() { return std::string("cs: ") + std::to_string(this->cycle_stamp.nanos); }
+    std::string to_string() { return std::string("tsc: ") + std::to_string(this->tsc); }
 };
 
 class StampConfig;
@@ -197,15 +195,15 @@ class StampDelta {
     bool empty;
     const StampConfig* config;
     // not cycles: has arbitrary units
-    cl_interval cycle_delta;
+    uint64_t tsc_delta;
     event_counts counters;
 
     StampDelta(const StampConfig& config,
-               cl_interval cycle_delta,
+               uint64_t tsc_delta,
                event_counts counters)
         : empty(false),
           config{&config},
-          cycle_delta{cycle_delta},
+          tsc_delta{tsc_delta},
           counters{std::move(counters)}
           {}
 
@@ -215,16 +213,16 @@ public:
      * never be returned from functions like min(), unless both arguments
      * are empty. Handy for accumulation patterns.
      */
-    StampDelta() : empty(true), config{nullptr}, cycle_delta{}, counters{} {}
+    StampDelta() : empty(true), config{nullptr}, tsc_delta{}, counters{} {}
 
     double get_nanos() const {
         assert(!empty);
-        return cl_to_nanos(cycle_delta);
+        return 1000000000. * tsc_delta / tsc_freq;
     }
 
-    double get_cycles() const {
+    uint64_t get_tsc() const {
         assert(!empty);
-        return cl_to_cycles(cycle_delta);
+        return tsc_delta;
     }
 
     event_counts get_counters() const {
@@ -250,7 +248,7 @@ public:
             return l;
         assert(l.config == r.config);
         event_counts new_counts            = event_counts::apply(l.counters, r.counters, f);
-        return StampDelta{*l.config, {f(l.cycle_delta.nanos, r.cycle_delta.nanos)}, new_counts};
+        return StampDelta{*l.config, {f(l.tsc_delta, r.tsc_delta)}, new_counts};
     }
 
     static StampDelta min(const StampDelta& l, const StampDelta& r) { return apply(l, r, min_functor{}); }
@@ -344,9 +342,9 @@ public:
 
     // take the stamp.
     Stamp stamp() const {
-        auto cycle_stamp = cl_now();
-        auto counters    = read_counters();
-        return Stamp(cycle_stamp, counters);
+        auto counters = read_counters();
+        auto tsc = rdtsc();
+        return Stamp(tsc, counters);
     }
 
     /**
@@ -354,8 +352,7 @@ public:
      * which should have been created by this StampConfig.
      */
     StampDelta delta(const Stamp& before, const Stamp& after) const {
-        return StampDelta(*this, cl_delta(before.cycle_stamp, after.cycle_stamp),
-                          calc_delta(before.counters, after.counters));
+        return StampDelta(*this, after.tsc - before.tsc, calc_delta(before.counters, after.counters));
     }
 };
 
@@ -394,30 +391,10 @@ struct ColFailed : std::runtime_error {
  */
 class Column {
 public:
-    /**
-     * The normalization mode determines how the value is normalized, e.g., made
-     * to reflect a value which is indepednent of the number of iterations, etc.
-     */
-    enum NormMode {
-        /* No normalization needed, e.g., because the value is a ratio */
-        NORM_NONE,
-        /* Normalization for values that are derived from instruments associated
-         * with run_instrumented. That is, normalize the value based on the number
-         * of iterations used by run_intrumented. Normalizes per small element. */
-        NORM_INSTRUMENT,
-        /* Normalize based on the main test, i.e., value that come from the main
-         * benchmark loop. Normalizes per small element. */
-        NORM_FULL,
-        /* Normalize only by the number of inner iterations, not by the number of small
-           elements. */
-        NORM_ITERS_ONLY
-
-    };
 
 private:
     const char* heading;
     const char* format;
-    NormMode norm_mode;
     bool post_output;
 
 protected:
@@ -427,8 +404,8 @@ protected:
     };
 
 public:
-    Column(const char* heading, const char* format, NormMode norm_mode, bool post_output = false)
-        : heading{heading}, format{format}, norm_mode{norm_mode}, post_output{post_output} {}
+    Column(const char* heading, const char* format, bool post_output = false)
+        : heading{heading}, format{format}, post_output{post_output} {}
 
     virtual ~Column() {}
 
@@ -449,7 +426,7 @@ public:
     double get_final_value(const BenchResults& results) const {
         auto val = get_value(results);
         if (val.second) {
-            return val.first / get_norm_divisor(results);
+            return val.first;
         } else {
             return std::numeric_limits<double>::quiet_NaN();
         }
@@ -481,20 +458,6 @@ public:
             return ret;
         }
     }
-
-    double get_norm_divisor(const BenchResults& results) const {
-        switch (norm_mode) {
-            case NORM_NONE:
-                return 1;
-            case NORM_INSTRUMENT:
-                return results.ssize();  // instrument doesn't do "iters" inner loops
-            case NORM_FULL:
-                return results.args.iters * results.ssize();
-            case NORM_ITERS_ONLY:
-                return results.args.iters;
-        }
-        throw std::logic_error("get_norm_divisor");
-    }
 };
 
 class EventColumn : public Column {
@@ -502,7 +465,7 @@ public:
     PerfEvent top, bottom;
 
     EventColumn(const char* heading, const char* format, PerfEvent top, PerfEvent bottom)
-        : Column{heading, format, bottom == NoEvent ? NORM_FULL : NORM_NONE}, top{top}, bottom{bottom} {}
+        : Column{heading, format}, top{top}, bottom{bottom} {}
 
     virtual std::pair<double, bool> get_value(const BenchResults& results) const override {
         double ratio = value(results.delta, top) / (is_ratio() ? value(results.delta, bottom) : 1.);
@@ -546,6 +509,7 @@ EventColumn EVENT_COLUMNS[] = {
         {"L1_MISS", "%*.1f", MEM_LOAD_RETIRED_L1_MISS, NoEvent},
         {"L1_REPL", "%*.1f", L1D_REPLACEMENT, NoEvent},
 
+        {"Cycles", "%*.2f", CPU_CLK_UNHALTED_THREAD, NoEvent},
         {"Unhalt_GHz", "%*.3f", CPU_CLK_UNHALTED_THREAD, DUMMY_EVENT_NANOS},
         // {"Unhalt_GHz", "%*.3f", CPU_CLK_UNHALTED_REF_TSC, DUMMY_EVENT_NANOS},
 
@@ -569,8 +533,8 @@ public:
     using extractor_fn = std::function<double(const BenchResults& ir)>;
     extractor_fn extractor;
 
-    SimpleColumn(const char* heading, const char* format, extractor_fn extractor, NormMode norm_mode = NORM_FULL)
-        : Column{heading, format, norm_mode}, extractor{extractor} {}
+    SimpleColumn(const char* heading, const char* format, extractor_fn extractor)
+        : Column{heading, format}, extractor{extractor} {}
 
     virtual std::pair<double, bool> get_value(const BenchResults& results) const override {
         return {extractor(results), true};
@@ -580,7 +544,10 @@ public:
 using BR = const BenchResults&;
 
 SimpleColumn BASIC_COLUMNS[] = {
-        {"Cycles", "%*.2f", [](BR r) { return r.delta.get_cycles(); }},
+        {"tsc", "xxx", [](BR r) {
+            // printf("delta tsc %zu\n", r.delta.get_tsc());
+            return (double)r.delta.get_tsc(); }},
+        {"nanos", "xxx", [](BR r) { return r.delta.get_nanos(); }},
 };
 
 using ColList = std::vector<Column*>;
@@ -764,12 +731,12 @@ void hot_wait(size_t cycles) {
     while (cycles--) {
         x = 1;
     }
-    _mm256_zeroupper();
 }
 
-size_t test_cycles      ;
-size_t period_cycles    ;
+size_t test_cycles;
+size_t period_cycles;
 size_t resolution_cycles;
+size_t payload_extra_cycles;
 
 void runOne(const test_description* test,
             const StampConfig& config,
@@ -780,7 +747,8 @@ void runOne(const test_description* test,
     std::vector<BenchResults> result_vector; //(bargs.repeat_count);
 
     struct TscResult {
-        uint64_t tsc;
+        uint64_t tsc, period, pdeadline, sdeadline;
+        uint64_t payload_spins, total_spins;
         StampDelta delta;
     };
 
@@ -790,39 +758,56 @@ void runOne(const test_description* test,
 
     auto args = bargs.get_args();
 
-
     for (size_t repeat = 0; repeat < bargs.repeat_count; repeat++) {
-        _mm256_zeroupper();
 
         allresults.emplace_back();
         auto& results = allresults.back();
         const size_t samples_max = test_cycles / resolution_cycles + 2;
         results.resize(samples_max);
 
+        if (!(test->flags & NO_VZ)) {
+            _mm256_zeroupper();
+        }
         hot_wait(1000000000ull);
 
-        uint64_t tsc = rdtsc(), start_tsc = tsc, sample_deadline = tsc, period_deadline = tsc;
+        config.stamp();  // warm
         Stamp prior_stamp = config.stamp();
-        size_t rpos = 0;
+        uint64_t tsc = rdtsc(), start_tsc = tsc, sample_deadline = tsc, period_deadline = tsc;
+        size_t rpos = 0, period = 0;
+
+
         while (rpos < samples_max) {
             // execute the payload instruction
             _mm_lfence();
-            // printf("function\n");
             test->call_f(args);
 
+            auto payload_deadline = period_deadline + payload_extra_cycles;
             period_deadline += period_cycles;
             while (tsc < period_deadline && rpos < samples_max) {
                 sample_deadline += resolution_cycles;
-                while ((tsc = rdtsc()) < sample_deadline) {
+                uint64_t total_spins = 0, payload_spins = 0;
+                do {
+                    // while waiting to take a sample we either execute the
                     // busy wait
-                }
-                // printf("sample\n");
+                    if (tsc < payload_deadline) {
+                        _mm_lfence();
+                        test->call_f(args);
+                        payload_spins++;
+                    }
+                    total_spins++;
+                } while ((tsc = rdtsc()) < sample_deadline);
 
+                // printf("sample\n");
+                config.stamp();
                 Stamp stamp = config.stamp();
                 StampDelta delta = config.delta(prior_stamp, stamp);
-                results[rpos++] = {tsc - start_tsc, delta};
+                results[rpos++] = {tsc - start_tsc, period, period_deadline - start_tsc, sample_deadline - start_tsc,
+                        payload_spins, total_spins, delta};
                 prior_stamp = stamp;
             }
+
+
+            period++;
         }
     }
 
@@ -831,19 +816,30 @@ void runOne(const test_description* test,
 
 
     for (size_t repeat = 0; repeat < bargs.repeat_count; repeat++) {
-        printf("repeat,tsc,us");
+        printf("repeat,us,period,sdl,payspin,totspin");
         for (auto col : columns) {
-            printf(",%s %s", test->name, col->get_header());
+            if (prefix_cols) {
+                printf(",%s %s", test->name, col->get_header());
+            } else {
+                printf(",%s", col->get_header());
+            }
         }
         printf("\n");
 
         auto& results = allresults.at(repeat);
 
+        bool first = false;
         for (auto& result : results) {
-            printf("%zu,%zu,%.3f", repeat, result.tsc, 1000000. * result.tsc / tsc_freq);
+            if (first) {
+                first = false;
+                continue;
+            }
+            printf("%zu,%.3f,%zu,%zu,%zu,%zu", repeat, 1000000. * result.tsc / tsc_freq,
+                    result.period, result.sdeadline, result.payload_spins, result.total_spins);
             BenchResults br{result.delta, bargs};
             for (auto column : columns) {
                 double val = column->get_final_value(br);
+                // printf("\nvalue for %s %f\n", column->get_header(), val);
                 printf(",%.3f", val);
             }
             printf("\n");
@@ -854,16 +850,16 @@ void runOne(const test_description* test,
 }
 
 int main(int argc, char** argv) {
-    summary = getenv_bool("SUMMARY");
-    verbose = !getenv_bool("QUIET");
-    debug   = getenv_bool("DEBUG");
-    do_csv  = getenv_bool("CSV");
+    summary     = getenv_bool("SUMMARY");
+    verbose     = !getenv_bool("QUIET");
+    debug       = getenv_bool("DEBUG");
+    prefix_cols = getenv_bool("PREFIX_COLS");
 
     bool dump_tests_flag = getenv_bool("DUMPTESTS");
     bool do_list_events  = getenv_bool("LIST_EVENTS");  // list the events and quit
     bool include_slow    = getenv_bool("INCLUDE_SLOW");
     std::string collist  = getenv_generic<std::string>(
-            "COLS", "Cycles,INSTRU,IPC,UPC,Unhalt_GHz");
+            "COLS", "tsc,nanos,Cycles,INSTRU,IPC,UPC,Unhalt_GHz");
 
     constexpr size_t SIZE_INC_DEFAULT = 256 * 1024;
     constexpr size_t SIZE_STOP_DEFAULT = 20 * 1024 * 1024;
@@ -873,9 +869,10 @@ int main(int argc, char** argv) {
     int pincpu         = getenv_int("PINCPU",  0);
     size_t iters       = getenv_int("ITERS", 100);
 
-    test_cycles       = getenv_longlong("TEST_CYC",   1ull *  100ull * 1000ull * 1000ull);
-    period_cycles     = getenv_longlong("TEST_PER",            10ull * 1000ull * 1000ull);
-    resolution_cycles = getenv_longlong("TEST_RES",                      10ull * 1000ull);
+    test_cycles          = getenv_longlong("TEST_CYC",   1ull *  100ull * 1000ull * 1000ull);
+    period_cycles        = getenv_longlong("TEST_PER",            10ull * 1000ull * 1000ull);
+    resolution_cycles    = getenv_longlong("TEST_RES",                      10ull * 1000ull);
+    payload_extra_cycles = getenv_longlong("TEST_EXTRA",                                  0);
 
     // size
 
@@ -945,32 +942,35 @@ int main(int argc, char** argv) {
     }
     config.prepare();
 
-    cl_init(!summary);
-
     // run the whole test repeat_count times, each of which calls the test function iters times
     unsigned repeat_count = 3;
 
     char_span input = alloc_random(size_stop, 0);
     char* output    = alloc(size_stop, 0);
 
-    tsc_freq = get_tsc_freq(false);
+    bool freq_forced = true;
+    tsc_freq = getenv_generic<double>("MHZ", 0.0) * 1000000;
+    if (tsc_freq == 0.0) {
+        tsc_freq = get_tsc_freq(false);
+        freq_forced = false;
+    }
 
     if (verbose) {
-        fprintf(stderr, "inner loops : %10zu\n", iters);
-        fprintf(stderr, "pinned cpu  : %10d\n", pincpu);
-        fprintf(stderr, "current cpu : %10d\n", sched_getcpu());
-        fprintf(stderr, "start size  : %10zu bytes\n", size_start);
-        fprintf(stderr, "stop size   : %10zu bytes\n", size_stop);
-        fprintf(stderr, "inc size    : %10zu bytes\n", size_inc);
-        fprintf(stderr, "input align : %10zu\n", get_alignment(input.data()));
-        fprintf(stderr, "input hash  : %10x\n", XXH32(input.data(), input.size() * sizeof(char), 0));
-        fprintf(stderr, "output align: %10zu\n", get_alignment(output));
-        fprintf(stderr, "rel align   : %10zu\n", relalign(input.data(), output));
-        fprintf(stderr, "tsc freq    : %10.1f MHz\n", get_tsc_freq(false) / 1000000.);
-        fprintf(stderr, "test period : %10.3f us\n", 1000000. * test_cycles       / tsc_freq);
-        fprintf(stderr, "duty period : %10.3f us\n", 1000000. * period_cycles     / tsc_freq);
-        fprintf(stderr, "test sample : %10.3f us\n", 1000000. * resolution_cycles / tsc_freq);
-
+        fprintf(stderr, "inner loops  : %10zu\n", iters);
+        fprintf(stderr, "pinned cpu   : %10d\n", pincpu);
+        fprintf(stderr, "current cpu  : %10d\n", sched_getcpu());
+        fprintf(stderr, "start size   : %10zu bytes\n", size_start);
+        fprintf(stderr, "stop size    : %10zu bytes\n", size_stop);
+        fprintf(stderr, "inc size     : %10zu bytes\n", size_inc);
+        fprintf(stderr, "input align  : %10zu\n", get_alignment(input.data()));
+        fprintf(stderr, "input hash   : %10x\n", XXH32(input.data(), input.size() * sizeof(char), 0));
+        fprintf(stderr, "output align : %10zu\n", get_alignment(output));
+        fprintf(stderr, "rel align    : %10zu\n", relalign(input.data(), output));
+        fprintf(stderr, "tsc freq     : %10.1f MHz%s\n", tsc_freq / 1000000., freq_forced ? " (forced)" : "");
+        fprintf(stderr, "test period  : %10.3f us\n", 1000000. * test_cycles       / tsc_freq);
+        fprintf(stderr, "duty period  : %10.3f us\n", 1000000. * period_cycles     / tsc_freq);
+        fprintf(stderr, "resolution   : %10.3f us\n", 1000000. * resolution_cycles / tsc_freq);
+        fprintf(stderr, "payload extra: %10.3f us\n", 1000000. * payload_extra_cycles / tsc_freq);
     }
 
     if (!summary) {
@@ -978,20 +978,15 @@ int main(int argc, char** argv) {
                 columns.size(), (size_t)clock() * 1000u / CLOCKS_PER_SEC);
     }
 
-    auto printer = do_csv ? (iprinter*)new csv_printer(tests, columns) : new stdout_printer;
-
-    // printer->print_start();
-
     size_t size = 4096;
     assert(size <= size_stop);
     // for (size_t size = size_start; size <= size_stop; size += size_inc) {
-    RunArgs args{0., input.first(size), output, repeat_count, iters, printer};
+    RunArgs args{0., input.first(size), output, repeat_count, iters};
     // printer->row_start(args);
     for (auto t : tests) {
         runOne(&t, config, columns, post_columns, args);
     }
 
-    // printer->print_end();
     fprintf(stderr, "Benchmark done\n");
     fflush(stderr);
 }

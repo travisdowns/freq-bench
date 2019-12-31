@@ -3,14 +3,17 @@
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
+import matplotlib.patches as patches
 import pandas as pd
 import numpy as np
-import csv
+
 import argparse
-import sys
+import csv
 import collections
-import os
+import itertools
 import json
+import os
+import sys
 
 # for arguments that should be comma-separate lists, we use splitlsit as the type
 splitlist = lambda x: x.split(',')
@@ -26,14 +29,16 @@ p.add_argument('--out', help='output filename')
 p.add_argument('--sep', help='separator character (or regex) for input', default=',')
 
 # column selection and configuration
-p.add_argument('--xcol', help='Column index to use as x axis (default: 0)', type=int, default=0)
-p.add_argument('--cols-by-name', help='Use only these comma-separated columns, specified by "name", i.e., the column header (default: all columns)',
-    type=splitlist)
-p.add_argument('--allxticks', help="Force one x-axis tick for each value, disables auto ticks and may crowd x-axis", action='store_true')
+p.add_argument('--xcols', help='Column index(es) to use as x axis (default: 0)', type=int, nargs='+')
+p.add_argument('--xcols-by-name', help='Column name(s) to use as x axis', type=splitlist)
 p.add_argument('--cols',  help='Use only these zero-based columns on primary axis (default: all columns)',
     type=int, nargs='+')
 p.add_argument('--cols2', help='Use only these zero-based columns on secondary axis (default: no secondary axis)',
     type=int, nargs='+')
+p.add_argument('--cols-by-name', help='Use only these comma-separated columns, specified by "name", i.e., the column header (default: all columns)',
+    type=splitlist)
+p.add_argument('--cols2-by-name', help='Use only these comma-separated columns, specified by "name", on the secondary axis',
+    type=splitlist)
 p.add_argument('--color-map', help='A JSON map from column name to color to use for that column',
     type=json.loads)
 p.add_argument('--color', help='A list of colors to use for each column', type=splitlist)
@@ -42,7 +47,7 @@ p.add_argument('--color2', help='A list of colors to use for each secondary colu
 # chart labels and text
 p.add_argument('--clabels', help="Comma separated list of column names used as label for data series (default: column header)",
     type=splitlist)
-p.add_argument('--scatter', help='Do an XY scatter plot (default is a line splot with x values used only as labels)', action='store_true')
+p.add_argument('--scatter', help='Do an XY scatter plot (default is a line plot with x values used only as labels)', action='store_true')
 p.add_argument('--title', help='Set chart title', default='Some chart (use --title to specify title)')
 p.add_argument('--xlabel', help='Set x axis label')
 p.add_argument('--ylabel', help='Set y axis label')
@@ -59,6 +64,7 @@ p.add_argument('--group', help='Group data by the first column, with new min/med
 
 # axis and line/point configuration
 p.add_argument('--ylim', help='Set the y axis limits explicitly (e.g., to cross at zero)', type=float, nargs='+')
+p.add_argument('--xlim', help='Set the x axis limits explicitly', type=float, nargs='+')
 p.add_argument('--xrotate', help='rotate the xlablels by this amount', default=0)
 p.add_argument('--tick-interval', help='use the given x-axis tick spacing (in x axis units)', type=int)
 p.add_argument('--marker', help='use the given marker', type=splitlist)
@@ -68,6 +74,11 @@ p.add_argument('--markersize2', help='use the given marker size (or list of size
 p.add_argument('--alpha', help='use the given alpha for marker/line', type=float)
 p.add_argument('--linewidth', help='use the given line width', type=float)
 p.add_argument('--tight', help='use tight_layout for less space around chart', action='store_true')
+p.add_argument('--allxticks', help="Force one x-axis tick for each value, disables auto ticks and may crowd x-axis", action='store_true')
+
+# additional chart elements
+p.add_argument('--patches', help='A JSON array of patches.Rectangle object arguments to patch onto the chart',
+    type=json.loads)
 
 
 # debugging
@@ -76,6 +87,7 @@ args = p.parse_args()
 
 vprint = print if args.verbose else lambda *a: None
 vprint("args = ", args)
+argsdict = vars(args)
 
 # fix various random seeds so we get reproducible plots
 # fix the mpl seed used to generate SVG IDs
@@ -89,7 +101,6 @@ np.random.seed(123)
 if (args.input and args.input[0] == sys.stdin):
     print("reading from standard input...", file=sys.stderr)
 
-xi = args.xcol
 dfs = []
 for f in args.input:
     df = pd.read_csv(f, sep=args.sep)
@@ -120,10 +131,9 @@ df = df.rename(columns=renamer())
 
 vprint("---- renamed df ----\n", df.head(), "\n---------------------")
 
-def col_names_to_indices(requested, df):
-    vprint("requested columns: ", requested)
+def col_names_to_indices(requested):
     colnames = [x.strip() for x in df.columns.tolist()]
-    vprint("actual columns: ", colnames)
+    vprint("requested columns: ", requested, ", actual columns: ", colnames)
     cols = []
     for name in requested:
         if not name in colnames:
@@ -132,39 +142,42 @@ def col_names_to_indices(requested, df):
     return cols
 
 
-def extract_cols(cols, df, name):
-    vprint(name, "axis columns: ", cols)
-    if (not cols): return None
-    if (max(cols) >= len(df.columns)):
-        print("Column", max(cols), "too large: input only has", len(df.columns), "columns", file=sys.stderr)
-        exit(1)
-    # ensure xi is the first thing in the column list
-    if xi in cols: cols.remove(xi)
-    cols = [xi] + cols
-    vprint(name, " final columns: ", cols)
-    pruned = df.iloc[:, cols]
-    vprint("----- pruned ", name, " df -----\n", pruned.head(), "\n---------------------")
-    return pruned
+def get_cols(arg_prefix, name, ret):
+    numeric = argsdict[arg_prefix]
+    string  = argsdict[arg_prefix + '_by_name']
+    if numeric and string:
+        sys.exit('both string {} and numeric {} columns provided for {}, not currently supported'.format(string, numeric, arg_prefix))
+    if numeric:
+        ret = numeric
+    elif string:
+        ret = col_names_to_indices(string)
+    vprint('resolved', name, 'axis columns: ', ret)
+    if (ret and max(ret) >= len(df.columns)):
+        sys.exit("In", name, ", column", max(cols), "too large: input only has", len(df.columns), "columns", file=sys.stderr)
+    return ret
 
+df_all_idx = list(range(len(df.columns)))
 
-if args.cols_by_name:
-    cols = col_names_to_indices(args.cols_by_name, df)
-elif args.cols:
-    cols = args.cols
-else:
-    cols = list(range(len(df.columns)))
+# get the list of column indexes
+xcols = get_cols('xcols', 'x primary', [0])
+cols  = get_cols('cols',  'y primary', df_all_idx[1:])
+cols2 = get_cols('cols2', 'y secondary', [])
 
-df2 = extract_cols(args.cols2, df, "secondary")
-df = extract_cols(cols, df, "primary")
+assert set(cols).isdisjoint(xcols), "x and y column lists are not disjoint"
+assert set(cols2).isdisjoint(xcols), "x and y column lists are not disjoint"
+
+if len(xcols) > 1 and len(xcols) != len(cols):
+    print('WARNING: x column count {} and y column count {} are different (and not 1) which is weird'.format(len(xcols), len(cols)))
+
 
 # if legend_hack is True, we use apply the following hack
 # (1) disable per-axis legend generation
-# (2) generate the legend once a the figure level
+# (2) generate the legend once at the figure level
 # this works around pandas bugs which cause the legends to be incomplete when secondary_y
 # is used
 # as a side effect, however, the legend location isn't chosen automatically (i.e., the usual
 # defualt of loc='best' isn't used), so you should set the legend location manually
-legend_hack = df2 is not None
+legend_hack = cols2 is not None
 vprint("using legend_hack = ", legend_hack)
 
 if args.clabels:
@@ -176,7 +189,7 @@ if args.clabels:
 # dupes will break pandas beyond this point, should be impossible due to above renaming
 dupes = df.columns.duplicated()
 if True in dupes:
-    print("Duplicate columns after merge and pruning, consider --suffix-names",
+    print("Duplicate columns after merge, consider --suffix-names",
         df.columns[dupes].values.tolist(), file=sys.stderr)
     exit(1)
 
@@ -200,7 +213,8 @@ def jitter(arr, multiplier):
     return arr if not len(arr) else arr + np.random.randn(len(arr)) * stdev
 
 if args.jitter:
-    df.iloc[:,xi] = jitter(df.iloc[:,xi], args.jitter)
+    for xi in xcols:
+        df.iloc[:,xi] = jitter(df.iloc[:,xi], args.jitter)
 
 kwargs = {}
 
@@ -215,7 +229,7 @@ if args.color_map:
     sys.exit("FIXME: color-map doesn't work with one-by-one plotting")
     colors = []
     for i, cname in enumerate(df.columns):
-        if i == xi:
+        if i in xcols:
             continue
         if cname in args.color_map:
             vprint("Using color {} for column {}".format(args.color_map[cname], cname))
@@ -238,12 +252,9 @@ if (args.alpha):
 # and generally correspond to matplotlib plot argumnets.
 passthru_args  = ['markersize', 'marker', 'color']
 passthru_args2 = ['markersize2', 'marker2', 'color2']
-argsdict = vars(args)
 
 # populate the per-series arguments, based on the series index
-def populate_args(idx, base, secondary = False):
-    assert idx > 0
-    idx = idx - 1 # because the columns are effectively 1-based (col 0 are the x values)
+def populate_args(idx, base, secondary):
     arglist = passthru_args2 if secondary else passthru_args
     kwargs = base.copy()
     for arg in arglist:
@@ -268,15 +279,19 @@ def populate_args(idx, base, secondary = False):
 #ax.set_title(args.title)
 #ax.grid(True)
 
-#for cidx in range(1, len(df.columns)):
-#    print("plotting col ", cidx)
-#    ax.plot(df.iloc[:, 0] + cidx * 2000, df.iloc[:, cidx], **kwargs)
-ax = None
-for cidx in range(1, len(df.columns)):
-    fullargs = populate_args(cidx, kwargs)
-    vprint("kwargs for col {}: {}".format(cidx, fullargs))
-    ax = df.plot.line(ax=ax, x=0, y=cidx, title=args.title, figsize=(12,8), grid=True, **fullargs)
-    print("AX = ", ax)
+assert len(xcols) <= len(cols)
+
+ax = ax2 = None
+for cols, secondary in [(cols, False), (cols2, True)]:
+    for cidx, (xi, yi) in enumerate(zip(itertools.cycle(xcols),cols)):
+        fullargs = populate_args(cidx, kwargs, secondary)
+        vprint("{} series {}: xi={} yi={} kwargs={}".format('secondary' if secondary else 'primary', cidx, xi, yi, fullargs))
+        ax_ = df.plot.line(ax=ax, x=xi, y=yi, title=args.title, figsize=(12,8), grid=True, secondary_y=secondary, **fullargs)
+        if secondary:
+            ax2 = ax_
+        else:
+            ax = ax_
+        vprint("id(ax_)= ", id(ax_))
 
 #ax = df.plot.line(x=0, title=args.title, figsize=(12,8), grid=True, **kwargs)
 
@@ -284,7 +299,8 @@ for cidx in range(1, len(df.columns)):
 # all x values will be shown, but the x-axis could be crowded if there
 # are too many
 if args.allxticks:
-    ticks = df.iloc[:,xi].values
+    # we base the ticks on the first x-axis column
+    ticks = df.iloc[:,xcols[0]].values
     plt.xticks(ticks=range(len(ticks)), labels=ticks)
 
 if (args.tick_interval):
@@ -304,15 +320,20 @@ if args.ylim:
     else:
         sys.exit('provide one or two args to --ylim')
 
+if args.xlim:
+    if (len(args.xlim) == 1):
+        ax.set_xlim(args.xlim[0])
+    elif (len(args.xlim) == 2):
+        ax.set_xlim(args.xlim[0], args.xlim[1])
+    else:
+        sys.exit('provide one or two args to --xlim')
 
-# secondary axis handling
-if df2 is not None:
-    for cidx in range(1, len(df2.columns)):
-        fullargs = populate_args(cidx, kwargs, True)
-        vprint("(secondary) kwargs for col {}: {}".format(cidx, fullargs))
-        ax2 = df2.plot.line(x=0, secondary_y=True, ax=ax, grid=True, **fullargs)
-        if (args.ylabel2):
-           ax2.set_ylabel(args.ylabel2)
+# put some patches on
+if args.patches:
+    for p in args.patches:
+        vprint('adding patch with args:', p)
+        ax.add_patch(patches.Rectangle(**p))
+
 
 # this needs to go after the ax2 handling, or else secondary axis x label will override
 if args.xlabel:
@@ -336,7 +357,7 @@ if (args.alpha):
         lh._legmarker.set_alpha(1)
 
 
-print("all axes ", plt.gcf().get_axes())
+vprint("all axes ", plt.gcf().get_axes())
 
 if (args.tight):
     plt.tight_layout()
