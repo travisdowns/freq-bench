@@ -34,29 +34,30 @@ function plot {
 }
 
 # scatter_args="--scatter --markersize=1"
+xcols_arg="--xcols-by-name us,us_1,us_2"
+ycols_arg="--cols-by-name Unhalt_GHz,Unhalt_GHz_1,Unhalt_GHz_2"
 
+# plot "skx-vporymm_vz-{0..2}.csv" "fig-vporvz256" "Frequency (GHz)" "Time (us)" "256-bit vpor Frequency Transitions" \
+#    $xcols_arg $ycols_arg --ylim 0 4 $scatter_args
 
+# plot "skx-vporzmm_vz-{0..2}.csv" "fig-vporvz512" "Frequency (GHz)" "Time (us)" "512-bit vpor Frequency Transitions" \
+#    $xcols_arg $ycols_arg --ylim 0 4 $scatter_args
 
-plot "skx-vporymm_vz-{0..2}.csv" "fig-vporvz256" "Frequency (GHz)" "Time (us)" "256-bit vpor Frequency Transitions" \
-   --xcols 1 --cols-by-name 'Unhalt_GHz,Unhalt_GHz_1,Unhalt_GHz_2' --ylim 0 4 $scatter_args
+# plot "skx-vporzmm_vz-{0..2}.csv" "fig-vpor-zoomed" "Frequency (GHz)" "Time (us)" "Transition Detail" --marker=. \
+#    --patches \
+# '[{ "xy" : [15000, 0],  "width" : 9,"height" : 4,"color" : "thistle"},'\
+# '{ "xy" : [15009, 0], "width" : 11,"height" : 4,"color" : "peachpuff"} ]'\
+#     $xcols_arg $ycols_arg --ylim 2.7 3.3 --xlim 14950 15050
 
+# plot "skx-vporymm-{0..2}.csv" "fig-vpor256" "Frequency (GHz)" "Time (us)" "256-bit vpor Transitions (no vzeroupper)" \
+#     $xcols_arg $ycols_arg --ylim 0 4
 
-plot "skx-vporzmm_vz-{0..2}.csv" "fig-vporvz512" "Frequency (GHz)" "Time (us)" "512-bit vpor Frequency Transitions" \
-   --xcols-by-name "us,us_1,us_2" --cols-by-name 'Unhalt_GHz,Unhalt_GHz_1,Unhalt_GHz_2' --ylim 0 4 $scatter_args
+# plot "skx-vporzmm-{0..2}.csv" "fig-vpor512" "Frequency (GHz)" "Time (us)" "512-bit vpor Transitions (no vzeroupper)" \
+#     $xcols_arg $ycols_arg --ylim 0 4
 
-exit
+# plot "skx-vporzmm_vz100-{0..2}.csv" "fig-vporvz512" "Frequency (GHz)" "Time (us)" "512-bit vpor Frequency Transitions" \
+#     $xcols_arg $ycols_arg --cols2-by-name "IPC" --ylim 0 4 --ylabel2 IPC
 
-plot "skx-vporzmm_vz-{0..2}.csv" "fig-vpor-zoomed" "Frequency (GHz)" "Time (us)" "Transition Detail" --marker=. \
-   --patches \
-'[{ "xy" : [15000, 0],  "width" : 9,"height" : 4,"color" : "thistle"},'\
-'{ "xy" : [15009, 0], "width" : 11,"height" : 4,"color" : "peachpuff"} ]'\
-    --xcols 1 --cols-by-name 'Unhalt_GHz,Unhalt_GHz_1,Unhalt_GHz_2' --ylim 2.7 3.3 --xlim 14950 15050
-
-plot "skx-vporymm-{0..2}.csv" "fig-vpor256" "Frequency (GHz)" "Time (us)" "256-bit vpor Transitions (no vzeroupper)" \
-   --xcols 1 --cols-by-name 'Unhalt_GHz,Unhalt_GHz_1,Unhalt_GHz_2' --ylim 0 4
-
-plot "skx-vporzmm-{0..2}.csv" "fig-vpor512" "Frequency (GHz)" "Time (us)" "512-bit vpor Transitions (no vzeroupper)" \
-   --xcols 1 --cols-by-name 'Unhalt_GHz,Unhalt_GHz_1,Unhalt_GHz_2' --ylim 0 4
-
-plot "skx-vporzmm_vz100-{0..2}.csv" "fig-vporvz512" "Frequency (GHz)" "Time (us)" "512-bit vpor Frequency Transitions" \
-   --xcols 1 --cols2-by-name "IPC" --cols-by-name 'Unhalt_GHz,Unhalt_GHz_1,Unhalt_GHz_2' --ylim 0 4 --verbose
+plot "skx-vporzmm_vz100-{0..2}.csv" "fig-ipc-zoomed" "Frequency (GHz)" "Time (us)" "512-bit vpor Frequency Transitions" \
+    $xcols_arg $ycols_arg --cols2-by-name "IPC" --ylim 2.7 3.3 --xlim 14950 15150 --ylabel2 IPC --ylim2 0 1.2 \
+    --marker=. --legend-loc='center right'

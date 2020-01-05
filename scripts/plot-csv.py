@@ -63,8 +63,9 @@ p.add_argument('--jitter', help='Apply horizontal (x-axis) jitter of the given r
 p.add_argument('--group', help='Group data by the first column, with new min/median/max columns with one row per group')
 
 # axis and line/point configuration
-p.add_argument('--ylim', help='Set the y axis limits explicitly (e.g., to cross at zero)', type=float, nargs='+')
 p.add_argument('--xlim', help='Set the x axis limits explicitly', type=float, nargs='+')
+p.add_argument('--ylim', help='Set the y axis limits explicitly (e.g., to cross at zero)', type=float, nargs='+')
+p.add_argument('--ylim2',help='Set the secondary y axis limits explicitly', type=float, nargs='+')
 p.add_argument('--xrotate', help='rotate the xlablels by this amount', default=0)
 p.add_argument('--tick-interval', help='use the given x-axis tick spacing (in x axis units)', type=int)
 p.add_argument('--marker', help='use the given marker', type=splitlist)
@@ -309,16 +310,20 @@ if (args.tick_interval):
 if (args.xrotate):
     plt.xticks(rotation=args.xrotate)
 
-if args.ylabel:
-    ax.set_ylabel(args.ylabel)
-
-if args.ylim:
-    if (len(args.ylim) == 1):
-        ax.set_ylim(args.ylim[0])
-    elif (len(args.ylim) == 2):
-        ax.set_ylim(args.ylim[0], args.ylim[1])
-    else:
-        sys.exit('provide one or two args to --ylim')
+# generic handling for axis specific methods
+for theax, suffix in [(ax, ''), (ax2, '2')]:
+    def getarg(base):
+        return argsdict[base + suffix]
+    if getarg('ylabel'):
+        theax.set_ylabel(getarg('ylabel'))
+    ylim = getarg('ylim')
+    if ylim:
+        if (len(ylim) == 1):
+            theax.set_ylim(ylim[0])
+        elif (len(ylim) == 2):
+            theax.set_ylim(ylim[0], ylim[1])
+        else:
+            sys.exit('provide one or two args to --ylim' + suffix)
 
 if args.xlim:
     if (len(args.xlim) == 1):

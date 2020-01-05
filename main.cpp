@@ -777,10 +777,11 @@ void runOne(const test_description* test,
 
 
         while (rpos < samples_max) {
-            // execute the payload instruction
-            _mm_lfence();
-            test->call_f(args);
+            // // execute the payload instruction
+            // _mm_lfence();
+            // test->call_f(args);
 
+            bool first = true;
             auto payload_deadline = period_deadline + payload_extra_cycles;
             period_deadline += period_cycles;
             while (tsc < period_deadline && rpos < samples_max) {
@@ -789,23 +790,22 @@ void runOne(const test_description* test,
                 do {
                     // while waiting to take a sample we either execute the
                     // busy wait
-                    if (tsc < payload_deadline) {
+                    if (first || tsc < payload_deadline) {
                         _mm_lfence();
                         test->call_f(args);
                         payload_spins++;
                     }
+                    first = false;
                     total_spins++;
                 } while ((tsc = rdtsc()) < sample_deadline);
 
-                // printf("sample\n");
-                config.stamp();
+                config.stamp();  // reduce outliers
                 Stamp stamp = config.stamp();
                 StampDelta delta = config.delta(prior_stamp, stamp);
                 results[rpos++] = {tsc - start_tsc, period, period_deadline - start_tsc, sample_deadline - start_tsc,
                         payload_spins, total_spins, delta};
                 prior_stamp = stamp;
             }
-
 
             period++;
         }

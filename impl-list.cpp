@@ -4,19 +4,22 @@
 #include "misc.hpp"
 
 const test_description all_funcs[] = {
-    {"memcpy_stdlib",  memcpy_stdlib,      0, "C stdlib memcpy", NONE},
-    {"memmove_stdlib", memmove_stdlib,     0, "C stdlib memmove", NONE},
-    {"repmovsb",       repmovsb,           0, "inline asm rep movsb", NONE},
-    {"vporxmm",        vporxmm,            0, "vpor xmm", NO_VZ },
-    {"vporymm",        vporymm,            0, "vpor ymm", NO_VZ },
-    {"vporzmm",        vporzmm,            0, "vpor zmm", NO_VZ },
-    {"vporxmm_vz",     vporxmm_vz,         0, "vpor xmm w/ vzeroupper", NONE},
-    {"vporymm_vz",     vporymm_vz,         0, "vpor ymm w/ vzeroupper", NONE},
-    {"vporzmm_vz",     vporzmm_vz,         0, "vpor zmm w/ vzeroupper", NONE},
-    {"vporxmm_vz100",  vporxmm_vz100, 150000, "100x vpor xmm w/ vzero", NONE},
-    {"vporymm_vz100",  vporymm_vz100, 150000, "100x vpor ymm w/ vzero", NONE},
-    {"vporzmm_vz100",  vporzmm_vz100, 150000, "100x vpor zmm w/ vzero", NONE},
-    {"dummy",          dummy,              0, "empty function", NONE},
+    {"memcpy_stdlib",  memcpy_stdlib,  "C stdlib memcpy", NONE},
+    {"memmove_stdlib", memmove_stdlib, "C stdlib memmove", NONE},
+    {"repmovsb",       repmovsb,       "inline asm rep movsb", NONE},
+    {"vporxmm",        vporxmm,        "vpor xmm", NO_VZ },
+    {"vporymm",        vporymm,        "vpor ymm", NO_VZ },
+    {"vporzmm",        vporzmm,        "vpor zmm", NO_VZ },
+    {"vporxmm_vz",     vporxmm_vz,     "vpor xmm w/ vzeroupper", NONE},
+    {"vporymm_vz",     vporymm_vz,     "vpor ymm w/ vzeroupper", NONE},
+    {"vporzmm_vz",     vporzmm_vz,     "vpor zmm w/ vzeroupper", NONE},
+    {"vporxmm_vz100",  vporxmm_vz100,  "100x vpor lat xmm w/ vzero", NONE},
+    {"vporymm_vz100",  vporymm_vz100,  "100x vpor lat ymm w/ vzero", NONE},
+    {"vporzmm_vz100",  vporzmm_vz100,  "100x vpor lat zmm w/ vzero", NONE},
+    {"vporxmm_tput_vz100",  vporxmm_tput_vz100,  "100x vpor tput xmm w/ vzero", NONE},
+    {"vporymm_tput_vz100",  vporymm_tput_vz100,  "100x vpor tput ymm w/ vzero", NONE},
+    {"vporzmm_tput_vz100",  vporzmm_tput_vz100,  "100x vpor tput zmm w/ vzero", NONE},
+    {"dummy",          dummy,          "empty function", NONE},
 };
 
 auto b() -> decltype(get_all().begin()) {

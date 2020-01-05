@@ -22,7 +22,6 @@ enum AlgoFlags {
 struct test_description {
     const char *name;
     memcpy_fn *f;
-    uint64_t payload_period;
     const char *desc;
     AlgoFlags flags;
 

@@ -62,18 +62,26 @@ void vporzmm_vz(bench_args args) {
 /**
  * 100 dependent vpors
  */
-#define MAKE_MANY(instr,reg) \
+#define MAKE_MANY(instr,reg,regd,regs) \
 void vpor##reg##_vz100(bench_args args) {  \
     asm volatile (                     \
         ".rept 1000\n\t"               \
-        #instr " %" #reg "0, %" #reg "0, %" #reg "0\n\t" \
+        #instr " %" #regs ", %" #regs ", %" #regd "\n\t" \
         ".endr\n\t"                    \
         "vzeroupper\n\t"               \
     );                                 \
 }
 
-MAKE_MANY(vpor,  xmm)
-MAKE_MANY(vpor,  ymm)
-MAKE_MANY(vpord, zmm)
+// latency
+MAKE_MANY(vpor,  xmm, xmm0, xmm0)
+MAKE_MANY(vpor,  ymm, ymm0, ymm0)
+MAKE_MANY(vpord, zmm, zmm0, zmm0)
+
+// throughput
+MAKE_MANY(vpor,  xmm_tput, xmm0, xmm1)
+MAKE_MANY(vpor,  ymm_tput, ymm0, ymm1)
+MAKE_MANY(vpord, zmm_tput, zmm0, zmm1)
+
+
 
 void dummy(bench_args args) {}

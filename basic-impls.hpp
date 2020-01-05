@@ -20,5 +20,9 @@ memcpy_fn vporxmm_vz100;
 memcpy_fn vporymm_vz100;
 memcpy_fn vporzmm_vz100;
 
+memcpy_fn vporxmm_tput_vz100;
+memcpy_fn vporymm_tput_vz100;
+memcpy_fn vporzmm_tput_vz100;
+
 
 #endif
