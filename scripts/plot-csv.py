@@ -268,18 +268,6 @@ def populate_args(idx, base, secondary):
             vprint("not set {} for col {}".format(arg, idx))
     return kwargs
 
-# set x labels to strings so we don't get a scatter plot, and
-# so the x labels are not themselves plotted
-#if (args.scatter):
-#    ax = df.plot.line(x=0, title=args.title, figsize=(12,8), grid=True, **kwargs)
-#else:
-    # df.iloc[:,xi] = df.iloc[:,xi].apply(str)
-
-#fig, ax = plt.subplots(figsize=(12,8))
-
-#ax.set_title(args.title)
-#ax.grid(True)
-
 assert len(xcols) <= len(cols)
 
 ax = ax2 = None
@@ -287,7 +275,7 @@ for cols, secondary in [(cols, False), (cols2, True)]:
     for cidx, (xi, yi) in enumerate(zip(itertools.cycle(xcols),cols)):
         fullargs = populate_args(cidx, kwargs, secondary)
         vprint("{} series {}: xi={} yi={} kwargs={}".format('secondary' if secondary else 'primary', cidx, xi, yi, fullargs))
-        ax_ = df.plot.line(ax=ax, x=xi, y=yi, title=args.title, figsize=(12,8), grid=True, secondary_y=secondary, **fullargs)
+        ax_ = df.plot.line(ax=ax, x=xi, y=yi, title=args.title, figsize=(10,7), grid=True, secondary_y=secondary, **fullargs)
         if secondary:
             ax2 = ax_
         else:

@@ -513,14 +513,14 @@ EventColumn EVENT_COLUMNS[] = {
         {"Unhalt_GHz", "%*.3f", CPU_CLK_UNHALTED_THREAD, DUMMY_EVENT_NANOS},
         // {"Unhalt_GHz", "%*.3f", CPU_CLK_UNHALTED_REF_TSC, DUMMY_EVENT_NANOS},
 
-        {"P0", "%*.2f", UOPS_DISPATCHED_PORT_PORT_0, NoEvent},
-        {"P1", "%*.2f", UOPS_DISPATCHED_PORT_PORT_1, NoEvent},
-        {"P2", "%*.2f", UOPS_DISPATCHED_PORT_PORT_2, NoEvent},
-        {"P3", "%*.2f", UOPS_DISPATCHED_PORT_PORT_3, NoEvent},
-        {"P4", "%*.2f", UOPS_DISPATCHED_PORT_PORT_4, NoEvent},
-        {"P5", "%*.2f", UOPS_DISPATCHED_PORT_PORT_5, NoEvent},
-        {"P6", "%*.2f", UOPS_DISPATCHED_PORT_PORT_6, NoEvent},
-        {"P7", "%*.2f", UOPS_DISPATCHED_PORT_PORT_7, NoEvent},
+        {"P0", "%*.2f", UOPS_DISPATCHED_PORT_PORT_0, CPU_CLK_UNHALTED_THREAD},
+        {"P1", "%*.2f", UOPS_DISPATCHED_PORT_PORT_1, CPU_CLK_UNHALTED_THREAD},
+        {"P2", "%*.2f", UOPS_DISPATCHED_PORT_PORT_2, CPU_CLK_UNHALTED_THREAD},
+        {"P3", "%*.2f", UOPS_DISPATCHED_PORT_PORT_3, CPU_CLK_UNHALTED_THREAD},
+        {"P4", "%*.2f", UOPS_DISPATCHED_PORT_PORT_4, CPU_CLK_UNHALTED_THREAD},
+        {"P5", "%*.2f", UOPS_DISPATCHED_PORT_PORT_5, CPU_CLK_UNHALTED_THREAD},
+        {"P6", "%*.2f", UOPS_DISPATCHED_PORT_PORT_6, CPU_CLK_UNHALTED_THREAD},
+        {"P7", "%*.2f", UOPS_DISPATCHED_PORT_PORT_7, CPU_CLK_UNHALTED_THREAD},
 
 };
 
@@ -777,10 +777,6 @@ void runOne(const test_description* test,
 
 
         while (rpos < samples_max) {
-            // // execute the payload instruction
-            // _mm_lfence();
-            // test->call_f(args);
-
             bool first = true;
             auto payload_deadline = period_deadline + payload_extra_cycles;
             period_deadline += period_cycles;

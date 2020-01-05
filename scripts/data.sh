@@ -36,7 +36,7 @@ function run_one {
     local test_name=$1
     ./bench $test_name > "$TEMPDIR/temp.csv"
     for i in {0..2}; do
-        egrep -B1 "^${i}," "$TEMPDIR/temp.csv" > "$RESULTDIR/$PREFIX-$test_name-${i}.csv"
+        egrep -B1 "^${i}," "$TEMPDIR/temp.csv" > "$RESULTDIR/$PREFIX-$test_name${3}-${i}.csv"
     done
 }
 
@@ -45,12 +45,15 @@ echo "argstr: $argstr"
 run_one vporxmm_vz
 run_one vporymm_vz
 run_one vporzmm_vz
-TEST_EXTRA=$extra run_one vporxmm_vz100 "Cycles,Unhalt_GHz,IPC"
-TEST_EXTRA=$extra run_one vporymm_vz100 "Cycles,Unhalt_GHz,IPC"
-TEST_EXTRA=$extra run_one vporzmm_vz100 "Cycles,Unhalt_GHz,IPC"
-TEST_EXTRA=$extra run_one vporxmm_tput_vz100 "Cycles,Unhalt_GHz,IPC"
-TEST_EXTRA=$extra run_one vporymm_tput_vz100 "Cycles,Unhalt_GHz,IPC"
-TEST_EXTRA=$extra run_one vporzmm_tput_vz100 "Cycles,Unhalt_GHz,IPC"
+TEST_EXTRA=$extra run_one vporxmm_vz100        "Cycles,Unhalt_GHz,IPC"
+TEST_EXTRA=$extra run_one vporymm_vz100        "Cycles,Unhalt_GHz,IPC"
+TEST_EXTRA=$extra run_one vporzmm_vz100        "Cycles,Unhalt_GHz,IPC"
+TEST_EXTRA=$extra TEST_RES=$((8 * $MHZ)) run_one vporzmm_vz100        "Cycles,Unhalt_GHz,IPC" "-10us"
+TEST_EXTRA=$extra run_one vporxmm_tput_vz100   "Cycles,Unhalt_GHz,IPC"
+TEST_EXTRA=$extra run_one vporymm_tput_vz100   "Cycles,Unhalt_GHz,IPC"
+TEST_EXTRA=$extra run_one vporzmm_tput_vz100   "Cycles,Unhalt_GHz,IPC"
+TEST_EXTRA=$extra run_one vpermdzmm_vz100      "Cycles,Unhalt_GHz,IPC"
+TEST_EXTRA=$extra run_one vpermdzmm_tput_vz100 "Cycles,Unhalt_GHz,IPC"
 run_one vporymm
 run_one vporzmm
 

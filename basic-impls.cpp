@@ -60,10 +60,10 @@ void vporzmm_vz(bench_args args) {
 }
 
 /**
- * 100 dependent vpors
+ * 1000 copies of instr
  */
-#define MAKE_MANY(instr,reg,regd,regs) \
-void vpor##reg##_vz100(bench_args args) {  \
+#define MAKE_MANY(name,instr,regd,regs) \
+void name##_vz100(bench_args args) {  \
     asm volatile (                     \
         ".rept 1000\n\t"               \
         #instr " %" #regs ", %" #regs ", %" #regd "\n\t" \
@@ -73,14 +73,18 @@ void vpor##reg##_vz100(bench_args args) {  \
 }
 
 // latency
-MAKE_MANY(vpor,  xmm, xmm0, xmm0)
-MAKE_MANY(vpor,  ymm, ymm0, ymm0)
-MAKE_MANY(vpord, zmm, zmm0, zmm0)
+MAKE_MANY(vporxmm, vpor,  xmm0, xmm0)
+MAKE_MANY(vporymm, vpor,  ymm0, ymm0)
+MAKE_MANY(vporzmm, vpord, zmm0, zmm0)
 
 // throughput
-MAKE_MANY(vpor,  xmm_tput, xmm0, xmm1)
-MAKE_MANY(vpor,  ymm_tput, ymm0, ymm1)
-MAKE_MANY(vpord, zmm_tput, zmm0, zmm1)
+MAKE_MANY(vporxmm_tput, vpor,  xmm0, xmm1)
+MAKE_MANY(vporymm_tput, vpor,  ymm0, ymm1)
+MAKE_MANY(vporzmm_tput, vpord, zmm0, zmm1)
+
+// vpermd
+MAKE_MANY(vpermdzmm     , vpermd, zmm0, zmm0)
+MAKE_MANY(vpermdzmm_tput, vpermd, zmm0, zmm1)
 
 
 

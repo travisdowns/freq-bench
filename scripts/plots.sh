@@ -58,6 +58,48 @@ ycols_arg="--cols-by-name Unhalt_GHz,Unhalt_GHz_1,Unhalt_GHz_2"
 # plot "skx-vporzmm_vz100-{0..2}.csv" "fig-vporvz512" "Frequency (GHz)" "Time (us)" "512-bit vpor Frequency Transitions" \
 #     $xcols_arg $ycols_arg --cols2-by-name "IPC" --ylim 0 4 --ylabel2 IPC
 
-plot "skx-vporzmm_vz100-{0..2}.csv" "fig-ipc-zoomed" "Frequency (GHz)" "Time (us)" "512-bit vpor Frequency Transitions" \
+# plot "skx-vporxmm_vz100-{0..2}.csv" "fig-ipc-zoomed-xmm" "Frequency (GHz)" "Time (us)" "128-bit VPOR Transition Closeup" \
+#     $xcols_arg $ycols_arg --cols2-by-name "IPC" --ylim 2.7 3.3 --xlim 14950 15150 --ylabel2 IPC --ylim2 0 1.2 \
+#     --marker=. --marker2=. --legend-loc='upper right' --patches \
+#     '[{ "xy": [15000, 0], "width" : 9, "height" : 4,"color" : "thistle"},
+#     { "xy"  : [15009, 0], "width" :11, "height" : 4,"color" : "peachpuff"},
+#     { "xy"  : [15020, 0], "width" : 9.5, "height" : 4,"color" : "darkseagreen"},
+#     { "xy"  : [15029.5, 0], "width" :70.5, "height" : 4,"color" : "darkturquoise"} ]'
+
+# plot "skx-vporymm_vz100-{0..2}.csv" "fig-ipc-zoomed-ymm" "Frequency (GHz)" "Time (us)" "256-bit VPOR Transition Closeup" \
+#     $xcols_arg $ycols_arg --cols2-by-name "IPC" --ylim 2.7 3.3 --xlim 14950 15150 --ylabel2 IPC --ylim2 0 1.2 \
+#     --marker=. --marker2=. --legend-loc='upper right' --patches \
+#     '[{ "xy": [15000, 0], "width" : 9, "height" : 4,"color" : "thistle"},
+#     { "xy"  : [15009, 0], "width" :11, "height" : 4,"color" : "peachpuff"},
+#     { "xy"  : [15020, 0], "width" : 9.5, "height" : 4,"color" : "darkseagreen"},
+#     { "xy"  : [15029.5, 0], "width" :70.5, "height" : 4,"color" : "darkturquoise"} ]'
+
+
+plot "skx-vporzmm_vz100-{0..2}.csv" "fig-ipc-zoomed-zmm" "Frequency (GHz)" "Time (us)" "512-bit VPOR Transition Closeup" \
     $xcols_arg $ycols_arg --cols2-by-name "IPC" --ylim 2.7 3.3 --xlim 14950 15150 --ylabel2 IPC --ylim2 0 1.2 \
-    --marker=. --legend-loc='center right'
+    --marker=. --marker2=. --legend-loc='upper right' --patches \
+    '[{ "xy": [15000, 0], "width" : 9, "height" : 4,"color" : "thistle"},
+    { "xy"  : [15009, 0], "width" :11, "height" : 4,"color" : "peachpuff"},
+    { "xy"  : [15020, 0], "width" : 9.5, "height" : 4,"color" : "darkseagreen"},
+    { "xy"  : [15029.5, 0], "width" :70.5, "height" : 4,"color" : "darkturquoise"} ]'
+
+# 10 us version of zmm lat
+plot "skx-vporzmm_vz100-10us-{0..2}.csv" "fig-ipc-zoomed-zmm-10us" "Frequency (GHz)" "Time (us)" "512-bit VPOR Transition (10 us sampling)" \
+    $xcols_arg $ycols_arg --cols2-by-name "IPC" --ylim 2.7 3.3 --xlim 14950 15150 --ylabel2 IPC --ylim2 0 1.2 \
+    --marker=. --marker2=. --legend-loc='upper right'
+
+plot "skx-vporymm_tput_vz100-{0..2}.csv" "fig-ipc-zoomed-ymm-tput" "Frequency (GHz)" "Time (us)" "256-bit VPOR Transition w/ IPC" \
+    $xcols_arg $ycols_arg --cols2-by-name "IPC" --ylim 2.7 3.3 --xlim 14950 15150 --ylabel2 IPC --ylim2 0 2 \
+    --marker=. --marker2=. --legend-loc='upper right'
+
+plot "skx-vporzmm_tput_vz100-{0..2}.csv" "fig-ipc-zoomed-zmm-tput" "Frequency (GHz)" "Time (us)" "512-bit vpor Transition w/ IPC" \
+    $xcols_arg $ycols_arg --cols2-by-name "IPC" --ylim 2.7 3.3 --xlim 14950 15150 --ylabel2 IPC --ylim2 0 2 \
+    --marker=. --marker2=. --legend-loc='upper right'
+
+plot "skx-vpermdzmm_vz100-{0..2}.csv" "fig-vpermd-ipc-zoomed-tput" "Frequency (GHz)" "Time (us)" "512-bit vpor Transition IPC Closeup" \
+    $xcols_arg $ycols_arg --cols2-by-name "IPC" --ylim 2.7 3.3 --xlim 14950 15150 --ylabel2 IPC --ylim2 0 2 \
+    --marker=. --marker2=. --legend-loc='upper right' --patches \
+    '[{ "xy": [15000, 0], "width" : 9, "height" : 4,"color" : "thistle"},
+    { "xy"  : [15009, 0], "width" :11, "height" : 4,"color" : "peachpuff"},
+    { "xy"  : [15020, 0], "width" : 9.5, "height" : 4,"color" : "darkseagreen"},
+    { "xy"  : [15029.5, 0], "width" :70.5, "height" : 4,"color" : "darkturquoise"} ]'
