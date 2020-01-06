@@ -86,6 +86,47 @@ MAKE_MANY(vporzmm_tput, vpord, zmm0, zmm1)
 MAKE_MANY(vpermdzmm     , vpermd, zmm0, zmm0)
 MAKE_MANY(vpermdzmm_tput, vpermd, zmm0, zmm1)
 
+/**
+ * 1000 copies of instr
+ */
+#define MAKE_MANY250(name,instr1,instr2,regd1,regs1,regd2,regs2) \
+void name(bench_args args) {  \
+    asm volatile (                     \
+        ".rept 500\n\t"               \
+        #instr1 " %" #regs1 ", %" #regs1 ", %" #regd1 "\n\t" \
+        #instr2 " %" #regs2 ", %" #regs2 ", %" #regd2 "\n\t" \
+        #instr2 " %" #regs2 ", %" #regs2 ", %" #regd2 "\n\t" \
+        #instr2 " %" #regs2 ", %" #regs2 ", %" #regd2 "\n\t" \
+        ".endr\n\t"                    \
+        "vzeroupper\n\t"               \
+    );                                 \
+}
+
+// MAKE_MANY250(vporxymm250, vpor , vpor, ymm0, ymm0, xmm0, xmm0);
+// MAKE_MANY250(vporyzmm250, vpord, vpor, zmm0, zmm0, ymm0, ymm0);
+
+#define MAKE_MANY3(name,instr1,instr2,instr3) \
+void name(bench_args args) {  \
+    asm volatile (                     \
+        "vzeroupper\n\t"               \
+        ".rept 250\n\t"                \
+        instr1                         \
+        instr2                         \
+        instr3                         \
+        ".endr\n\t"                    \
+        "vzeroupper\n\t"               \
+    );                                 \
+}
+
+MAKE_MANY3(vporxymm250, \
+    "vpor %ymm0, %ymm0, %ymm0\n\t",
+    "movd %xmm0, %eax\n\t",
+    "movd %eax, %xmm0\n\t");
+
+MAKE_MANY3(vporyzmm250, \
+    "vpor %xmm0, %xmm0, %xmm0\n\t",
+    "movd %xmm0, %eax\n\t",
+    "movd %eax, %xmm0\n\t");
 
 
 void dummy(bench_args args) {}

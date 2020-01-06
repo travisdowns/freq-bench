@@ -58,6 +58,8 @@ TEST_EXTRA=$extra run_one vporymm_tput_vz100   "Cycles,Unhalt_GHz,IPC"
 TEST_EXTRA=$extra run_one vporzmm_tput_vz100   "Cycles,Unhalt_GHz,IPC"
 TEST_EXTRA=$extra run_one vpermdzmm_vz100      "Cycles,Unhalt_GHz,IPC"
 TEST_EXTRA=$extra run_one vpermdzmm_tput_vz100 "Cycles,Unhalt_GHz,IPC"
+TEST_EXTRA=$extra run_one vporxymm250            "Cycles,Unhalt_GHz,IPC"
+TEST_EXTRA=$extra run_one vporyzmm250            "Cycles,Unhalt_GHz,IPC"
 run_one vporymm
 run_one vporzmm
 

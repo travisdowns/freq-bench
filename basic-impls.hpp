@@ -32,4 +32,7 @@ memcpy_fn vpermdxmm_tput_vz100;
 memcpy_fn vpermdymm_tput_vz100;
 memcpy_fn vpermdzmm_tput_vz100;
 
+memcpy_fn vporxymm250;
+memcpy_fn vporyzmm250;
+
 #endif

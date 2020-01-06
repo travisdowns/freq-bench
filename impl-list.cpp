@@ -20,6 +20,8 @@ const test_description all_funcs[] = {
     {"vporxmm_tput_vz100",  vporxmm_tput_vz100,  "100x vpor tput xmm w/ vzero", NONE},
     {"vporymm_tput_vz100",  vporymm_tput_vz100,  "100x vpor tput ymm w/ vzero", NONE},
     {"vporzmm_tput_vz100",  vporzmm_tput_vz100,  "100x vpor tput zmm w/ vzero", NONE},
+    {"vporxymm250",  vporxymm250,  "250x yxxx lat w/ vzero", NONE},
+    {"vporyzmm250",  vporyzmm250,  "250x zyyy lat w/ vzero", NONE},
     // {"vpermdxmm_tput_vz100",  vpermdxmm_tput_vz100,  "100x vpermd tput xmm w/ vzero", NONE},
     // {"vpermdymm_tput_vz100",  vpermdymm_tput_vz100,  "100x vpermd tput ymm w/ vzero", NONE},
     {"vpermdzmm_tput_vz100",  vpermdzmm_tput_vz100,  "100x vpermd tput zmm w/ vzero", NONE},
