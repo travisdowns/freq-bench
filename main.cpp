@@ -785,7 +785,8 @@ void runOne(const test_description* test,
 
     struct Sample {
         uint64_t tsc, period, sdeadline;
-        uint64_t payload_spins, total_spins, payload_time;
+        uint64_t payload_spins, total_spins;
+        uint64_t payload_start_tsc, payload_end_tsc;
         Stamp stamp;
     };
 
@@ -838,9 +839,8 @@ void runOne(const test_description* test,
                 } while (tsc < sample_deadline);
 
                 config.stamp();  // warming, reduces outliers
-                stamps[rpos++] = {tsc, period, sample_deadline,
-                        payload_spins, total_spins, payload_end_tsc ? (payload_end_tsc - payload_start_tsc) / payload_spins : 0,
-                        config.stamp()};
+                stamps[rpos++] = {tsc, period, sample_deadline, payload_spins, total_spins,
+                        payload_start_tsc, payload_end_tsc, config.stamp()};
             }
 
             period++;
@@ -850,7 +850,7 @@ void runOne(const test_description* test,
 
 
     for (size_t repeat = 0; repeat < bargs.repeat_count; repeat++) {
-        printf("repeat,us,period,sdl,payspin,totspin");
+        printf("repeat,us,period,sdl,payspin,totspin,paytime");
         for (auto col : columns) {
             if (prefix_cols) {
                 printf(",%s %s", test->name, col->get_header());
@@ -867,8 +867,9 @@ void runOne(const test_description* test,
             const auto& result = samples.at(i);
             StampDelta delta = config.delta(samples.at(i - 1).stamp, result.stamp);
 
-            printf("%zu,%.3f,%zu,%zu,%zu,%zu", repeat, 1000000. * (result.tsc - results.start_tsc) / tsc_freq,
-                    result.period, result.sdeadline - results.start_tsc, result.payload_spins, result.total_spins);
+            printf("%zu,%.3f,%zu,%zu,%zu,%zu,%zu", repeat, 1000000. * (result.tsc - results.start_tsc) / tsc_freq,
+                    result.period, result.sdeadline - results.start_tsc, result.payload_spins, result.total_spins,
+                    result.payload_spins ? (result.payload_end_tsc  - result.payload_start_tsc) / result.payload_spins : 0);
             BenchResults br{delta, result.stamp, bargs, results.start_tsc};
             for (auto column : columns) {
                 double val = column->get_final_value(br);
