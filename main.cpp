@@ -804,7 +804,7 @@ void runOne(const test_description* test,
                     total_spins++;
                 } while (tsc < sample_deadline);
 
-                // config.stamp();  // warming, reduces outliers
+                config.stamp();  // warming, reduces outliers
                 stamps[rpos++] = {tsc, period, sample_deadline,
                         payload_spins, total_spins, payload_end_tsc ? (payload_end_tsc - payload_start_tsc) / payload_spins : 0,
                         config.stamp()};
