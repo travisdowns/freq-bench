@@ -163,16 +163,18 @@ class StampConfig;
 class Stamp {
     friend StampConfig;
 
-    uint64_t tsc;
-    event_counts counters;
 
 public:
     Stamp() : tsc(-1) {}
 
-    Stamp(uint64_t tsc, event_counts counters)
-        : tsc{tsc}, counters{counters} {}
+    Stamp(uint64_t tsc, event_counts counters, uint64_t tsc_before, size_t retries)
+        : tsc{tsc},  tsc_before{tsc_before}, counters{counters}, retries{retries} {}
 
     std::string to_string() { return std::string("tsc: ") + std::to_string(this->tsc); }
+
+    uint64_t tsc, tsc_before;
+    event_counts counters;
+    size_t retries;
 };
 
 class StampConfig;
@@ -323,6 +325,11 @@ public:
         }
         return idx;
     }
+
+    /** number of unique configured events */
+    size_t get_count() {
+        return event_map.size();
+    }
 };
 
 /**
@@ -333,20 +340,43 @@ public:
  */
 class StampConfig {
 public:
+    constexpr static size_t MAX_RETRIES = 10;
+
     EventManager em;
+    uint64_t retry_gap;
+
+    StampConfig () : retry_gap{-1u} {}
 
     /**
      * After updating the config to the state you want, call prepare() once which
      * does any global configuration needed to support the configured stamps, such
      * as programming PMU events.
      */
-    void prepare() { em.prepare(); }
+    void prepare() {
+        em.prepare();
+        // dirty hack - estimate retry gap based on number of events and magic
+        // numbers
+        retry_gap = 30 + 50 * em.get_count();
+    }
 
     // take the stamp.
     Stamp stamp() const {
+        auto tsc_before = rdtsc();
         auto counters = read_counters();
         auto tsc = rdtsc();
-        return Stamp(tsc, counters);
+
+        if (HEDLEY_LIKELY(tsc - tsc_before <= retry_gap)) {
+            return Stamp(tsc, counters, tsc_before, 0);
+        }
+
+        size_t retries = 1;
+        do {
+            tsc_before = rdtsc();
+            counters = read_counters();
+            tsc = rdtsc();
+        } while (tsc - tsc_before > retry_gap && retries++ < MAX_RETRIES);
+
+        return Stamp(tsc, counters, tsc_before, retries);
     }
 
     /**
@@ -370,8 +400,9 @@ uint64_t StampDelta::get_counter(const PerfEvent& event) const {
 
 struct BenchResults {
     StampDelta delta;
-    RunArgs
- args;
+    Stamp after;
+    RunArgs args;
+    uint64_t start_tsc;
 
     BenchResults() = delete;
 
@@ -535,8 +566,8 @@ public:
     using extractor_fn = std::function<double(const BenchResults& ir)>;
     extractor_fn extractor;
 
-    SimpleColumn(const char* heading, const char* format, extractor_fn extractor)
-        : Column{heading, format}, extractor{extractor} {}
+    SimpleColumn(const char* heading, extractor_fn extractor)
+        : Column{heading, "xxx"}, extractor{extractor} {}
 
     virtual std::pair<double, bool> get_value(const BenchResults& results) const override {
         return {extractor(results), true};
@@ -546,10 +577,12 @@ public:
 using BR = const BenchResults&;
 
 SimpleColumn BASIC_COLUMNS[] = {
-        {"tsc", "xxx", [](BR r) {
-            // printf("delta tsc %zu\n", r.delta.get_tsc());
-            return (double)r.delta.get_tsc(); }},
-        {"nanos", "xxx", [](BR r) { return r.delta.get_nanos(); }},
+        {"tsc-delta",  [](BR r) {return (double)r.delta.get_tsc(); }},
+        {"tscb",    [](BR r) { return (double)r.after.tsc_before - r.start_tsc; }}, // tsc before read_counters
+        {"tsca",    [](BR r) { return (double)r.after.tsc - r.start_tsc; }},        // tsc after  read_counters
+        {"tscg",    [](BR r) { return (double)r.after.tsc - r.after.tsc_before; }}, // tscb/a gap
+        {"retries", [](BR r) { return (double)r.after.retries; }},                  // how many times the counters were re-read
+        {"nanos",   [](BR r) { return r.delta.get_nanos(); }},
 };
 
 using ColList = std::vector<Column*>;
@@ -777,9 +810,9 @@ void runOne(const test_description* test,
         hot_wait(1000000000ull);
 
         config.stamp();  // warm
-        uint64_t tsc = rdtsc(), start_tsc = tsc, sample_deadline = tsc, period_deadline = tsc;
+        uint64_t tsc = rdtsc(), sample_deadline = tsc, period_deadline = tsc;
         size_t rpos = 0, period = 0;
-        allresults.back().start_tsc = start_tsc;
+        allresults.back().start_tsc = tsc;
 
         while (rpos < samples_max) {
             bool first = true;
@@ -836,11 +869,11 @@ void runOne(const test_description* test,
 
             printf("%zu,%.3f,%zu,%zu,%zu,%zu", repeat, 1000000. * (result.tsc - results.start_tsc) / tsc_freq,
                     result.period, result.sdeadline - results.start_tsc, result.payload_spins, result.total_spins);
-            BenchResults br{delta, bargs};
+            BenchResults br{delta, result.stamp, bargs, results.start_tsc};
             for (auto column : columns) {
                 double val = column->get_final_value(br);
                 // printf("\nvalue for %s %f\n", column->get_header(), val);
-                printf(",%.3f", val);
+                printf(",%.9g", val);
             }
             printf("\n");
         }
@@ -859,7 +892,7 @@ int main(int argc, char** argv) {
     bool do_list_events  = getenv_bool("LIST_EVENTS");  // list the events and quit
     bool include_slow    = getenv_bool("INCLUDE_SLOW");
     std::string collist  = getenv_generic<std::string>(
-            "COLS", "tsc,nanos,Cycles,INSTRU,IPC,UPC,Unhalt_GHz");
+            "COLS", "tsc-delta,nanos,Cycles,INSTRU,IPC,UPC,Unhalt_GHz");
 
     constexpr size_t SIZE_INC_DEFAULT = 256 * 1024;
     constexpr size_t SIZE_STOP_DEFAULT = 20 * 1024 * 1024;

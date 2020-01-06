@@ -210,7 +210,7 @@ unsigned long long rdpmc_readx(event_ctx *ctx)
 
 
 event_counts read_counters() {
-    event_counts ret = {};
+    event_counts ret{uninit_tag{}};
     for (size_t i = 0; i < contexts.size(); i++) {
         ret.counts[i] = rdpmc_readx(&contexts[i]);
     }

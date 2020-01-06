@@ -2,7 +2,7 @@
 set -e
 
 # configure the following values for your system
-export MHZ=3192
+export MHZ=${MHZ:=3192}
 
 # https://stackoverflow.com/a/12694189
 SCRIPTDIR="${BASH_SOURCE%/*}"
@@ -27,13 +27,17 @@ extra=$((100 * $MHZ)) # 100 us
 argstr="$@"
 
 function run_one {
-    export COLS=${2:-Cycles,Unhalt_GHz}
-    echo "TEST_PER=$TEST_PER COLS=$COLS"
+    export COLS=${2:-Cycles,Unhalt_GHz,tscg,retries}
+    local test_name=$1
+    echo "TEST_PER=$TEST_PER TEST_RES=$TEST_RES COLS=$COLS"
     if [[ $argstr && ! " $argstr " =~ " $1 " ]]; then
         echo "Skipping $1 because it is not in $argstr"
         return
     fi
-    local test_name=$1
+    if [[ -n $SKIP_ZMM && $test_name =~ .*zmm.* ]]; then
+        echo "Skipping $test_name because SKIP_ZMM is set"
+        return
+    fi
     ./bench $test_name > "$TEMPDIR/temp.csv"
     for i in {0..2}; do
         egrep -B1 "^${i}," "$TEMPDIR/temp.csv" > "$RESULTDIR/$PREFIX-$test_name${3}-${i}.csv"
