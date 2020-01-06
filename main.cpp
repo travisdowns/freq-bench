@@ -166,10 +166,12 @@ class Stamp {
     uint64_t tsc;
     event_counts counters;
 
+public:
+    Stamp() : tsc(-1) {}
+
     Stamp(uint64_t tsc, event_counts counters)
         : tsc{tsc}, counters{counters} {}
 
-public:
     std::string to_string() { return std::string("tsc: ") + std::to_string(this->tsc); }
 };
 
@@ -746,24 +748,28 @@ void runOne(const test_description* test,
     /* the main benchmark loop */
     std::vector<BenchResults> result_vector; //(bargs.repeat_count);
 
-    struct TscResult {
-        uint64_t tsc, period, pdeadline, sdeadline;
-        uint64_t payload_spins, total_spins;
-        StampDelta delta;
+    auto args = bargs.get_args();
+
+    struct Sample {
+        uint64_t tsc, period, sdeadline;
+        uint64_t payload_spins, total_spins, payload_time;
+        Stamp stamp;
     };
 
-    std::vector<std::vector<TscResult>> allresults;
-    allresults.reserve(bargs.repeat_count);
-    // BenchResults* result_array = new BenchResults[bargs.repeat_count];
+    struct RunResult {
+        std::vector<Sample> samples;
+        uint64_t start_tsc;
+        RunResult(size_t sample_count) : samples(sample_count) {}
+    };
 
-    auto args = bargs.get_args();
+    std::vector<RunResult> allresults;
+    allresults.reserve(bargs.repeat_count);
 
     for (size_t repeat = 0; repeat < bargs.repeat_count; repeat++) {
 
-        allresults.emplace_back();
-        auto& results = allresults.back();
         const size_t samples_max = test_cycles / resolution_cycles + 2;
-        results.resize(samples_max);
+        allresults.emplace_back(samples_max);
+        auto& stamps = allresults.back().samples;
 
         if (!(test->flags & NO_VZ)) {
             _mm256_zeroupper();
@@ -771,18 +777,18 @@ void runOne(const test_description* test,
         hot_wait(1000000000ull);
 
         config.stamp();  // warm
-        Stamp prior_stamp = config.stamp();
         uint64_t tsc = rdtsc(), start_tsc = tsc, sample_deadline = tsc, period_deadline = tsc;
         size_t rpos = 0, period = 0;
-
+        allresults.back().start_tsc = start_tsc;
 
         while (rpos < samples_max) {
             bool first = true;
             auto payload_deadline = period_deadline + payload_extra_cycles;
+
             period_deadline += period_cycles;
             while (tsc < period_deadline && rpos < samples_max) {
                 sample_deadline += resolution_cycles;
-                uint64_t total_spins = 0, payload_spins = 0;
+                uint64_t total_spins = 0, payload_spins = 0, payload_start_tsc = rdtsc(), payload_end_tsc = 0;
                 do {
                     // while waiting to take a sample we either execute the
                     // busy wait
@@ -790,25 +796,24 @@ void runOne(const test_description* test,
                         _mm_lfence();
                         test->call_f(args);
                         payload_spins++;
+                        tsc = payload_end_tsc = rdtsc();
+                        first = false;
+                    } else {
+                        tsc = rdtsc();
                     }
-                    first = false;
                     total_spins++;
-                } while ((tsc = rdtsc()) < sample_deadline);
+                } while (tsc < sample_deadline);
 
-                config.stamp();  // reduce outliers
-                Stamp stamp = config.stamp();
-                StampDelta delta = config.delta(prior_stamp, stamp);
-                results[rpos++] = {tsc - start_tsc, period, period_deadline - start_tsc, sample_deadline - start_tsc,
-                        payload_spins, total_spins, delta};
-                prior_stamp = stamp;
+                // config.stamp();  // warming, reduces outliers
+                stamps[rpos++] = {tsc, period, sample_deadline,
+                        payload_spins, total_spins, payload_end_tsc ? (payload_end_tsc - payload_start_tsc) / payload_spins : 0,
+                        config.stamp()};
             }
 
             period++;
         }
     }
 
-    // std::vector<BenchResults> result_vector(result_array, result_array + bargs.repeat_count);
-    // bargs.printer->print_one(test, result_vector, columns, post_columns);
 
 
     for (size_t repeat = 0; repeat < bargs.repeat_count; repeat++) {
@@ -822,17 +827,16 @@ void runOne(const test_description* test,
         }
         printf("\n");
 
-        auto& results = allresults.at(repeat);
+        const auto& results = allresults.at(repeat);
+        const auto& samples = results.samples;
 
-        bool first = false;
-        for (auto& result : results) {
-            if (first) {
-                first = false;
-                continue;
-            }
-            printf("%zu,%.3f,%zu,%zu,%zu,%zu", repeat, 1000000. * result.tsc / tsc_freq,
-                    result.period, result.sdeadline, result.payload_spins, result.total_spins);
-            BenchResults br{result.delta, bargs};
+        for (size_t i = 1; i < samples.size(); i++) {
+            const auto& result = samples.at(i);
+            StampDelta delta = config.delta(samples.at(i - 1).stamp, result.stamp);
+
+            printf("%zu,%.3f,%zu,%zu,%zu,%zu", repeat, 1000000. * (result.tsc - results.start_tsc) / tsc_freq,
+                    result.period, result.sdeadline - results.start_tsc, result.payload_spins, result.total_spins);
+            BenchResults br{delta, bargs};
             for (auto column : columns) {
                 double val = column->get_final_value(br);
                 // printf("\nvalue for %s %f\n", column->get_header(), val);
