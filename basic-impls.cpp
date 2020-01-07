@@ -108,25 +108,23 @@ void name(bench_args args) {  \
 #define MAKE_MANY3(name,instr1,instr2,instr3) \
 void name(bench_args args) {  \
     asm volatile (                     \
-        "vzeroupper\n\t"               \
         ".rept 250\n\t"                \
         instr1                         \
         instr2                         \
         instr3                         \
         ".endr\n\t"                    \
-        "vzeroupper\n\t"               \
     );                                 \
 }
 
 MAKE_MANY3(vporxymm250, \
     "vpor %ymm0, %ymm0, %ymm0\n\t",
-    "movd %xmm0, %eax\n\t",
-    "movd %eax, %xmm0\n\t");
+    "vmovd %xmm0, %eax\n\t",
+    "vmovd %eax, %xmm0\n\t");
 
 MAKE_MANY3(vporyzmm250, \
     "vpor %xmm0, %xmm0, %xmm0\n\t",
-    "movd %xmm0, %eax\n\t",
-    "movd %eax, %xmm0\n\t");
+    "vmovd %xmm0, %eax\n\t",
+    "vmovd %eax, %xmm0\n\t");
 
 
 void dummy(bench_args args) {}
