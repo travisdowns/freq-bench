@@ -8,6 +8,8 @@ export MHZ=${MHZ:=3192}
 SCRIPTDIR="${BASH_SOURCE%/*}"
 if [[ ! -d "$DIR" ]]; then DIR="$PWD"; fi
 
+. "$SCRIPTDIR/common.sh"
+
 RESULTDIR="$SCRIPTDIR/../results"
 : ${PREFIX:=test}
 
@@ -24,12 +26,10 @@ export TEST_PER=$(($PER_US * $MHZ))
 export TEST_RES=$((1 * $MHZ))
 extra=$((100 * $MHZ)) # 100 us
 
-argstr="$@"
-
 function run_one {
     export COLS=${2:-Cycles,Unhalt_GHz,tscg,retries}
     local test_name=$1
-    echo "TEST_PER=$TEST_PER TEST_RES=$TEST_RES COLS=$COLS"
+    echo ">>>>>>>>> Running $test_name with TEST_PER=$TEST_PER TEST_RES=$TEST_RES COLS=$COLS"
     if [[ $argstr && ! " $argstr " =~ " $1 " ]]; then
         echo "Skipping $1 because it is not in $argstr"
         return
@@ -62,4 +62,13 @@ TEST_EXTRA=$extra run_one vporxymm250            "Cycles,Unhalt_GHz,IPC"
 TEST_EXTRA=$extra run_one vporyzmm250            "Cycles,Unhalt_GHz,IPC"
 run_one vporymm
 run_one vporzmm
+
+for r in 1 2 3 4 5 6 7 8 9 10 20 30 40 50 60 70 80 90 100 120 140 160 180 200; do
+    TEST_EXTRA=$extra run_one "vporxymm250_$r"            "Cycles,Unhalt_GHz"
+done
+TEST_EXTRA=$extra run_one "mulxymm250_10"            "Cycles,Unhalt_GHz"
+
+for p in $period_list; do
+    TEST_EXTRA=$extra TEST_PER=$(($p * $MHZ)) run_one vporzmm_vz100 "Cycles,Unhalt_GHz,IPC" "-period$p"
+done
 

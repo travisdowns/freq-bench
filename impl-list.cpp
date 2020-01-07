@@ -3,6 +3,8 @@
 #include "common-cxx.hpp"
 #include "misc.hpp"
 
+#define MAKE250_ENTRY(rep) {"vporxymm250_" #rep,  vporxymm250_ ## rep,  "250x xyayaya ratio " #rep, NONE},
+
 const test_description all_funcs[] = {
     {"memcpy_stdlib",  memcpy_stdlib,  "C stdlib memcpy", NONE},
     {"memmove_stdlib", memmove_stdlib, "C stdlib memmove", NONE},
@@ -22,6 +24,9 @@ const test_description all_funcs[] = {
     {"vporzmm_tput_vz100",  vporzmm_tput_vz100,  "100x vpor tput zmm w/ vzero", NONE},
     {"vporxymm250",  vporxymm250,  "250x yxxx lat w/ vzero", NONE},
     {"vporyzmm250",  vporyzmm250,  "250x zyyy lat w/ vzero", NONE},
+    ALL_RATIOS_X(MAKE250_ENTRY)
+    {"mulxymm250_10",  mulxymm250_10,  "1x vpor ymm 10x imul", NONE},
+
     // {"vpermdxmm_tput_vz100",  vpermdxmm_tput_vz100,  "100x vpermd tput xmm w/ vzero", NONE},
     // {"vpermdymm_tput_vz100",  vpermdymm_tput_vz100,  "100x vpermd tput ymm w/ vzero", NONE},
     {"vpermdzmm_tput_vz100",  vpermdzmm_tput_vz100,  "100x vpermd tput zmm w/ vzero", NONE},

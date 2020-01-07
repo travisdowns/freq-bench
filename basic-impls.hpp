@@ -35,4 +35,10 @@ memcpy_fn vpermdzmm_tput_vz100;
 memcpy_fn vporxymm250;
 memcpy_fn vporyzmm250;
 
+#define DEFINE250(rep) memcpy_fn vporxymm250_##rep;
+
+ALL_RATIOS_X(DEFINE250)
+
+memcpy_fn mulxymm250_10;
+
 #endif

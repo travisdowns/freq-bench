@@ -126,5 +126,24 @@ MAKE_MANY3(vporyzmm250, \
     "vmovd %xmm0, %eax\n\t",
     "vmovd %eax, %xmm0\n\t");
 
+#define MAKE250(name,rep,instr) \
+void name##_##rep(bench_args args) {           \
+    asm volatile (                            \
+        "vzeroupper\n\t"                      \
+        ".rept 10\n\t"                        \
+        "vpor %ymm0, %ymm0, %ymm0\n\t"        \
+        ".rept " #rep "\n\t"                        \
+        instr                  \
+        ".endr 4\n\t"                         \
+        ".endr\n\t"                           \
+    );                                        \
+}                                             \
+
+#define MAKE250ADD(rep) MAKE250(vporxymm250, rep, "addl  $0, %eax\n\t")
+
+ALL_RATIOS_X(MAKE250ADD)
+
+MAKE250(mulxymm250, 10, "imull  $0, %eax, %eax\n\t")
+
 
 void dummy(bench_args args) {}

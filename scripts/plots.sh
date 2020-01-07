@@ -5,6 +5,8 @@ set -e
 SCRIPTDIR="${BASH_SOURCE%/*}"
 if [[ ! -d "$DIR" ]]; then DIR="$PWD"; fi
 
+. "$SCRIPTDIR/common.sh"
+
 PLOTPY="$SCRIPTDIR/plot-csv.py"
 RESULTDIR="$SCRIPTDIR/../results"
 
@@ -14,6 +16,11 @@ RESULTDIR="$SCRIPTDIR/../results"
 # $4 xlabel
 # $5 title
 function plot {
+    local title=$5
+    if [[ $argstr && ! "$title" =~ "$argstr" ]]; then
+        echo "Skipping $title because it is not in $argstr"
+        return
+    fi
     eval input=( $1 )
     IFS=',' command eval 'echo input="${input[*]}"'
     if [ -z "$OUTDIR" ]; then
@@ -30,7 +37,7 @@ function plot {
     input=(${input[@]/#/"$RESULTDIR/"})
     # IFS=',' command eval 'echo input="${input[*]}"'
     echo "INPUT: ${input[@]} OUTPUT: $OUTNAME"
-    "$PLOTPY" "${input[@]}" "${OUT[@]}" --tight --ylabel "$3" --xlabel "$4" --title "$5" "${@:6}"
+    "$PLOTPY" "${input[@]}" "${OUT[@]}" --tight --ylabel "$3" --xlabel "$4" --title "$title" "${@:6}"
 }
 
 : ${PREFIX:=skx}
@@ -57,7 +64,7 @@ plot "$PREFIX-vporymm-{0..2}.csv" "fig-vpor256" "Frequency (GHz)" "Time (us)" "2
 plot "$PREFIX-vporzmm-{0..2}.csv" "fig-vpor512" "Frequency (GHz)" "Time (us)" "512-bit VPOR Transitions (no vzeroupper)" \
     $xcols_arg $ycols_arg --ylim 0 4
 
-plot "$PREFIX-vporzmm_vz100-{0..2}.csv" "fig-vporvz512" "Frequency (GHz)" "Time (us)" "512-bit VPOR Frequency Transitions" \
+plot "$PREFIX-vporzmm_vz100-{0..2}.csv" "fig-vporvz512-ipc" "Frequency (GHz)" "Time (us)" "512-bit VPOR Frequency Transitions" \
     $xcols_arg $ycols_arg --cols2-by-name "IPC" --ylim 0 4 --ylabel2 IPC
 
 plot "$PREFIX-vporxmm_vz100-{0..2}.csv" "fig-ipc-zoomed-xmm" "Frequency (GHz)" "Time (us)" "128-bit VPOR Transition Closeup" \
@@ -97,3 +104,8 @@ plot "$PREFIX-vpermdzmm_vz100-{0..2}.csv" "fig-vpermd-ipc-zoomed-tput" "Frequenc
     { "xy"  : [15009, 0], "width" :11, "height" : 4,"color" : "peachpuff"},
     { "xy"  : [15020, 0], "width" : 9.5, "height" : 4,"color" : "darkseagreen"},
     { "xy"  : [15029.5, 0], "width" :70.5, "height" : 4,"color" : "darkturquoise"} ]'
+
+for p in $period_list; do
+    plot "$PREFIX-vporzmm_vz100-period$p-{0..2}.csv" "fig-vporvz512-ipc" "Frequency (GHz)" "Time (us)" "Period $p" \
+        $xcols_arg $ycols_arg --cols2-by-name "IPC" --ylim 2.7 3.3 --xlim 14950 15150 --ylabel2 IPC --ylim2 0 1.2
+done
