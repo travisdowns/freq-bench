@@ -66,8 +66,6 @@ long long getenv_longlong(const char *var, long long def) {
     return val ? atoll(val) : def;
 }
 
-
-
 bool getenv_bool(const char *var) {
     return getenv_generic<bool>(var, false);
 }

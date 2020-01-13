@@ -40,6 +40,7 @@ static bool verbose;
 static bool summary;
 static bool debug;
 static bool prefix_cols;
+static bool no_warm;  // true == skip the warmup stamp() each iteration
 
 static uint64_t tsc_freq;
 
@@ -965,7 +966,7 @@ void runOne(const test_description* test,
                     total_spins++;
                 } while (tsc < sample_deadline);
 
-                config.stamp();  // warming, reduces outliers
+                if (!no_warm) config.stamp();  // warming, reduces outliers
                 stamps[rpos++] = {tsc, period, sample_deadline, payload_spins, total_spins,
                         payload_start_tsc, payload_end_tsc, config.stamp()};
             }
@@ -1015,6 +1016,7 @@ int main(int argc, char** argv) {
     verbose     = !getenv_bool("QUIET");
     debug       = getenv_bool("DEBUG");
     prefix_cols = getenv_bool("PREFIX_COLS");
+    no_warm     = getenv_bool("NO_WARM");
 
     bool dump_tests_flag = getenv_bool("DUMPTESTS");
     bool do_list_events  = getenv_bool("LIST_EVENTS");  // list the events and quit
@@ -1132,6 +1134,7 @@ int main(int argc, char** argv) {
         fprintf(stderr, "duty period  : %10.3f us\n", 1000000. * period_cycles     / tsc_freq);
         fprintf(stderr, "resolution   : %10.3f us\n", 1000000. * resolution_cycles / tsc_freq);
         fprintf(stderr, "payload extra: %10.3f us\n", 1000000. * payload_extra_cycles / tsc_freq);
+        fprintf(stderr, "warmup stamp : %10s\n", no_warm ? "no" : "yes");
     }
 
     if (!summary) {

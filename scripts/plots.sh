@@ -110,3 +110,7 @@ for p in 760; do
     plot "$PREFIX-vporzmm_vz100-period$p-{0..2}.csv" "fig-vporvz512-ipc-p$p" "Frequency (GHz)" "Time (us)" "Transition Closeup: $p μs Period" \
         $xcols_arg $ycols_arg --cols2-by-name "IPC" --xlim 7550 7700 --ylim 2.7 3.3 --ylabel2 IPC --ylim2 0 1.2 --marker=. --marker2=.
 done
+
+plot "$PREFIX-vporymm_vz100-volts-0.csv" "fig-volts256" "Frequency (GHz)" "Time (us)" "volts ymm" \
+    --xcols-by-name "us" --cols-by-name "paytime" --cols2-by-name "volts" --ylabel paytime --ylabel2 Volts \
+    --xlim 14990 15020 --marker=. --marker2=.
