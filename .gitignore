@@ -9,13 +9,16 @@
 !.gitignore
 *.o
 *.a
-bench
 *.log
 __pycache__
 /tmp/*
 *.d
-/test
 /out*
+
+# exes
+/test
+/bench
+/voltmon
 
 perf.data
 perf.data.*

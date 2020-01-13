@@ -7,6 +7,7 @@
 #include "huge-alloc.h"
 #include "impl-list.hpp"
 #include "misc.hpp"
+#include "msr-access.h"
 #include "opt-control.h"
 #include "pcg-cpp/pcg_random.hpp"
 #include "perf-timer-events.hpp"
@@ -30,6 +31,8 @@
 #include <immintrin.h>
 
 #include <sched.h>
+
+#include "dbg.h"
 
 using namespace env;
 
@@ -163,18 +166,21 @@ class StampConfig;
 class Stamp {
     friend StampConfig;
 
-
 public:
+    constexpr static size_t  MAX_MSR = 1;
+
     Stamp() : tsc(-1) {}
 
     Stamp(uint64_t tsc, event_counts counters, uint64_t tsc_before, size_t retries)
-        : tsc{tsc},  tsc_before{tsc_before}, counters{counters}, retries{retries} {}
+        : tsc{tsc},  tsc_before{tsc_before}, counters{counters}, retries{retries}, msrs_read{0} {}
 
     std::string to_string() { return std::string("tsc: ") + std::to_string(this->tsc); }
 
     uint64_t tsc, tsc_before;
     event_counts counters;
     size_t retries;
+    uint64_t msr_values[MAX_MSR];
+    size_t msrs_read;
 };
 
 class StampConfig;
@@ -232,6 +238,10 @@ public:
     event_counts get_counters() const {
         assert(!empty);
         return counters;
+    }
+
+    const StampConfig& get_config() const {
+        return *config;
     }
 
     uint64_t get_counter(const PerfEvent& event) const;
@@ -333,6 +343,78 @@ public:
 };
 
 /**
+ * Manages PMU events.
+ */
+class MSRManager {
+
+    std::vector<uint32_t> msrids;
+
+    using result_type = uint64_t[Stamp::MAX_MSR];
+
+    uint64_t read_msr(uint32_t id) const {
+        uint64_t value = 0;
+        int err = read_msr_cur_cpu(id, &value);
+        (void)err;
+        assert(err == 0);
+        return value;
+    }
+
+public:
+    MSRManager() {}
+
+    void add_msr(uint32_t id) {
+        msrids.push_back(id);
+    }
+
+    void prepare() {
+        if (msrids.size() > Stamp::MAX_MSR) {
+            throw std::runtime_error("number of MSR reads exceeds MAX_MSR"); // just increase MAX_MSR
+        }
+        // try to read all the configured MSRs, in order to fail fast
+        for (auto id : msrids) {
+            uint64_t value = 0;
+            int err = read_msr_cur_cpu(id, &value);
+            if (err) {
+                throw std::runtime_error(std::string("MSR ") + std::to_string(id) + " read failed with error " + std::to_string(err));
+            }
+        }
+    }
+
+    HEDLEY_ALWAYS_INLINE
+    void do_stamp(Stamp &stamp) const {
+        if (HEDLEY_UNLIKELY(!msrids.empty())) {
+            do_stamp_slowpath(stamp);
+        }
+    }
+
+    HEDLEY_NEVER_INLINE
+    void do_stamp_slowpath(Stamp &stamp) const {
+        size_t i = 0;
+        for (auto id : msrids) {
+            stamp.msr_values[i++] = read_msr(id);
+        }
+        stamp.msrs_read = i;
+        // dbg(stamp.msrs_read);
+    }
+
+    uint64_t get_value(uint32_t id, const Stamp& stamp) const {
+        auto pos = std::find(msrids.begin(), msrids.end(), id);
+        // dbg(msrids.size());
+        if (pos == msrids.end()) {
+            throw std::logic_error("MSR id not found in list");
+        }
+        size_t idx = pos - msrids.begin();
+        if (idx >= stamp.msrs_read) {
+            // dbg(idx);
+            // dbg(stamp.msrs_read);
+            throw std::logic_error("MSR wasnt read");
+        }
+        assert(idx < Stamp::MAX_MSR);
+        return stamp.msr_values[idx];
+    }
+};
+
+/**
  * A class that holds configuration for creating stamps.
  *
  * Configured based on what columns are requested, holds configuration for varous types
@@ -343,6 +425,7 @@ public:
     constexpr static size_t MAX_RETRIES = 10;
 
     EventManager em;
+    MSRManager mm;
     uint64_t retry_gap;
 
     StampConfig () : retry_gap{-1u} {}
@@ -354,6 +437,7 @@ public:
      */
     void prepare() {
         em.prepare();
+        mm.prepare();
         // dirty hack - estimate retry gap based on number of events and magic
         // numbers
         retry_gap = 30 + 50 * em.get_count();
@@ -365,8 +449,11 @@ public:
         auto counters = read_counters();
         auto tsc = rdtsc();
 
+        Stamp s(tsc, counters, tsc_before, 0);
+        mm.do_stamp(s);
+
         if (HEDLEY_LIKELY(tsc - tsc_before <= retry_gap)) {
-            return Stamp(tsc, counters, tsc_before, 0);
+            return s;
         }
 
         size_t retries = 1;
@@ -376,7 +463,10 @@ public:
             tsc = rdtsc();
         } while (tsc - tsc_before > retry_gap && retries++ < MAX_RETRIES);
 
-        return Stamp(tsc, counters, tsc_before, retries);
+        s = {tsc, counters, tsc_before, retries};
+        mm.do_stamp(s);
+
+        return s;
     }
 
     /**
@@ -391,7 +481,7 @@ public:
 uint64_t StampDelta::get_counter(const PerfEvent& event) const {
     const EventManager& em = config->em;
     ssize_t idx            = em.get_mapping(event);
-    assert(idx >= -1 && idx <= MAX_COUNTERS);
+    assert(idx >= -1 && idx <= (ssize_t)MAX_COUNTERS);
     if (idx == -1) {
         return -1;
     }
@@ -437,7 +527,7 @@ protected:
     };
 
 public:
-    Column(const char* heading, const char* format, bool post_output = false)
+    Column(const char* heading, const char* format = nullptr, bool post_output = false)
         : heading{heading}, format{format}, post_output{post_output} {}
 
     virtual ~Column() {}
@@ -567,7 +657,7 @@ public:
     extractor_fn extractor;
 
     SimpleColumn(const char* heading, extractor_fn extractor)
-        : Column{heading, "xxx"}, extractor{extractor} {}
+        : Column{heading}, extractor{extractor} {}
 
     virtual std::pair<double, bool> get_value(const BenchResults& results) const override {
         return {extractor(results), true};
@@ -582,7 +672,43 @@ SimpleColumn BASIC_COLUMNS[] = {
         {"tsca",    [](BR r) { return (double)r.after.tsc - r.start_tsc; }},        // tsc after  read_counters
         {"tscg",    [](BR r) { return (double)r.after.tsc - r.after.tsc_before; }}, // tscb/a gap
         {"retries", [](BR r) { return (double)r.after.retries; }},                  // how many times the counters were re-read
-        {"nanos",   [](BR r) { return r.delta.get_nanos(); }},
+        {"nanos",   [](BR r) { return r.delta.get_nanos(); }}
+};
+
+template <class T>
+T extract_bits(T val, size_t start, size_t stop) {
+    assert(stop >= start);
+    assert(start <= sizeof(T) * 8);
+    T width = stop - start + 1;
+    if (width == sizeof(T) * 8) {
+        return val;
+    } else {
+        return (val >> (T)start) & ((1 << width) - 1);
+    }
+}
+
+struct MSRColumn : public Column {
+    uint32_t id; // the address/id of the MSR
+    size_t startbit, stopbit;
+    double scale_by;
+
+    MSRColumn(const char* heading, uint32_t id, size_t startbit = 0, size_t stopbit = 63, double scale_by = 1.0)
+        : Column{heading}, id{id}, startbit{startbit}, stopbit{stopbit}, scale_by{scale_by} {}
+
+    void update_config(StampConfig& sc) const override {
+        sc.mm.add_msr(id);
+    }
+
+    virtual std::pair<double, bool> get_value(const BenchResults& results) const override {
+        const MSRManager& manager = results.delta.get_config().mm;
+        uint64_t value = manager.get_value(id, results.after);
+        value = extract_bits(value, startbit, stopbit);
+        return { value * scale_by, true };
+    }
+};
+
+MSRColumn MSR_COLUMNS[] = {
+    {"volts", 0x198, 32, 47, 1. / 8192.}
 };
 
 using ColList = std::vector<Column*>;
@@ -599,6 +725,7 @@ ColList get_all_columns() {
     };
     add(BASIC_COLUMNS);
     add(EVENT_COLUMNS);
+    add(MSR_COLUMNS);
     return ret;
 }
 

@@ -105,7 +105,8 @@ plot "$PREFIX-vpermdzmm_vz100-{0..2}.csv" "fig-vpermd-ipc-zoomed-tput" "Frequenc
     { "xy"  : [15020, 0], "width" : 9.5, "height" : 4,"color" : "darkseagreen"},
     { "xy"  : [15029.5, 0], "width" :70.5, "height" : 4,"color" : "darkturquoise"} ]'
 
-for p in $period_list; do
-    plot "$PREFIX-vporzmm_vz100-period$p-{0..2}.csv" "fig-vporvz512-ipc" "Frequency (GHz)" "Time (us)" "Period $p" \
-        $xcols_arg $ycols_arg --cols2-by-name "IPC" --ylim 2.7 3.3 --xlim 14950 15150 --ylabel2 IPC --ylim2 0 1.2
+#for p in $period_list; do
+for p in 760; do
+    plot "$PREFIX-vporzmm_vz100-period$p-{0..2}.csv" "fig-vporvz512-ipc-p$p" "Frequency (GHz)" "Time (us)" "Transition Closeup: $p μs Period" \
+        $xcols_arg $ycols_arg --cols2-by-name "IPC" --xlim 7550 7700 --ylim 2.7 3.3 --ylabel2 IPC --ylim2 0 1.2 --marker=. --marker2=.
 done
