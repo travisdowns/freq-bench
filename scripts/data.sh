@@ -56,6 +56,7 @@ if [[ "$DO_VOLTS" -eq 1 ]]; then
     echo "Doing VOLTS data collection"
     TEST_RES=$((2 * $MHZ)) TEST_EXTRA=$extra NO_WARM=1 run_one vporxmm_vz100 "Cycles,Unhalt_GHz,IPC,volts" "-volts"
     TEST_RES=$((2 * $MHZ)) TEST_EXTRA=$extra NO_WARM=1 run_one vporymm_vz100 "Cycles,Unhalt_GHz,IPC,volts" "-volts"
+    TEST_RES=$((2 * $MHZ)) TEST_EXTRA=$extra NO_WARM=1 run_one vporzmm_vz100 "Cycles,Unhalt_GHz,IPC,volts" "-volts"
 else
     echo "Doing non-VOLTS data collection"
     run_one vporxmm_vz
