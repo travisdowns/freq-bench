@@ -32,7 +32,7 @@
 
 #include <sched.h>
 
-#include "dbg.h"
+// #include "dbg.h"
 
 using namespace env;
 
@@ -1002,7 +1002,13 @@ void runOne(const test_description* test,
             for (auto column : columns) {
                 double val = column->get_final_value(br);
                 // printf("\nvalue for %s %f\n", column->get_header(), val);
-                printf(",%.9g", val);
+                ssize_t ival = val;
+                if ((double)ival == val) {
+                    // integer value
+                    printf(",%zd", ival);
+                } else {
+                    printf(",%.3f", val);
+                }
             }
             printf("\n");
         }
