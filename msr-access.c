@@ -68,12 +68,16 @@ int get_rfile(int cpu) {
     }
 
     if (rfile_array[cpu] == 0) {
+        printf("opening file for cpu %d\n", cpu);
         char filename[64] = {};
         int ret = snprintf(filename, 64, "/dev/cpu/%d/msr", cpu);
-        assert(ret > 0);
-        rfile_array[cpu] = open(filename, O_RDONLY);
-        if (rfile_array[cpu] == -1) {
-            rfile_array[cpu] = -errno;
+        if (ret == 0) {
+            rfile_array[cpu] = -1;
+        } else {
+            rfile_array[cpu] = open(filename, O_RDONLY);
+            if (rfile_array[cpu] == -1) {
+                rfile_array[cpu] = -errno;
+            }
         }
     }
 

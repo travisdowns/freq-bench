@@ -43,17 +43,31 @@ void bench(int iters, bool thiscpu) {
     }
     clock_t stop = clock();
     double seconds = (double)(stop - start) / CLOCKS_PER_SEC;
-    printf("%d calls in %5.2f ms: %5.2f us per call\n", iters, seconds * 1000., seconds * 1000000. / iters);
+    printf("(%4s CPU) %d calls in %5.2f ms: %5.2f us per call\n",
+            thiscpu ? "same" : "other", iters, seconds * 1000., seconds * 1000000. / iters);
+}
+
+void pinToCpu(int cpu) {
+    cpu_set_t set;
+    CPU_ZERO(&set);
+    CPU_SET(cpu, &set);
+    if (sched_setaffinity(0, sizeof(set), &set)) {
+        assert("pinning failed" && false);
+    }
 }
 
 int main(int argc, char** argv) {
 
-    if (argc == 2 && strcmp("--bench", argv[1]) == 0) {
-        bench(1000, false);
-        bench(1000, false);
-        bench(1000, true);
-        bench(1000, true);
-        bench(1000, false);
+    pinToCpu(1);
+
+    if (argc >= 2 && strcmp("--bench", argv[1]) == 0) {
+        int iters = (argc == 3 ? atoi(argv[2]) : 10000);
+        printf("Running benchmarks with %d iterations\n", iters);
+        // bench(iters, false);
+        // bench(iters, false);
+        bench(iters, true);
+        bench(iters, true);
+        // bench(iters, false);
         exit(0);
     }
 
