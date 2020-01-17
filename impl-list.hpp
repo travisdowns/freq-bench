@@ -21,7 +21,7 @@ enum AlgoFlags {
 
 struct test_description {
     const char *name;
-    memcpy_fn *f;
+    bench_fn *f;
     const char *desc;
     AlgoFlags flags;
 

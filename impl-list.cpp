@@ -6,9 +6,6 @@
 #define MAKE250_ENTRY(rep) {"vporxymm250_" #rep,  vporxymm250_ ## rep,  "250x xyayaya ratio " #rep, NONE},
 
 const test_description all_funcs[] = {
-    {"memcpy_stdlib",  memcpy_stdlib,  "C stdlib memcpy", NONE},
-    {"memmove_stdlib", memmove_stdlib, "C stdlib memmove", NONE},
-    {"repmovsb",       repmovsb,       "inline asm rep movsb", NONE},
     {"vporxmm",        vporxmm,        "vpor xmm", NO_VZ },
     {"vporymm",        vporymm,        "vpor ymm", NO_VZ },
     {"vporzmm",        vporzmm,        "vpor zmm", NO_VZ },

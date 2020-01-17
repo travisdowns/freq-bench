@@ -19,8 +19,8 @@ CXXFLAGS += -std=$(STD) -DENABLE_TIMER=1
 # LDFLAGS = -use-ld=gold
 
 
-TARGETS := bench test voltmon readmsr
-MAINOS  := main.o main-test.o voltmon.o readmsr.o
+TARGETS := bench test voltmon
+MAINOS  := main.o main-test.o voltmon.o
 
 TESTSRCS:= $(wildcard *-test.c *-test.cpp)
 TESTOBJS:= $(patsubst %.c,%.o,$(TESTSRCS))
@@ -59,8 +59,6 @@ default: $(TARGETS)
 bench : $(OBJECTS) main.o
 
 voltmon : voltmon.o msr-access.o
-
-readmsr : readmsr.o msr-access.o
 
 test  : $(OBJECTS) $(TESTOBJS)
 

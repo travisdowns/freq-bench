@@ -15,13 +15,9 @@ using char_span = nonstd::span<char>;
 /**
  * Bundles all the arguments.
  */
-struct bench_args {
-    void* dest;
-    const void* source;
-    size_t size;
-};
+struct bench_args {};
 
-using memcpy_fn = void (bench_args args);
+using bench_fn = void (bench_args args);
 
 #define ALL_RATIOS_X(f) \
     f(1) \
