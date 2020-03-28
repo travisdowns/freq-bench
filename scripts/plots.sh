@@ -40,8 +40,10 @@ function plot {
     "$PLOTPY" "${input[@]}" "${OUT[@]}" --tight --ylabel "$3" --xlabel "$4" --title "$title" "${@:6}"
 }
 
-: ${PREFIX:=skx}
-: ${PREFIXV:=skl} # only for "volts" plots
+: ${PREFIX:=test}  # usually skx
+: ${PREFIXV:=test} # usually skl only for "volts" plots
+
+echo "Using PREFIX=$PREFIX, PREFIXV=$PREFIXV"
 
 xcols_arg="--xcols-by-name us,us_1,us_2"
 ycols_arg="--cols-by-name Unhalt_GHz,Unhalt_GHz_1,Unhalt_GHz_2"
