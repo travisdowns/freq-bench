@@ -31,7 +31,11 @@ You can list the available tests:
 
 ## Generating Results
 
-You can run all the test required for generating the data used in the post using the ./data.sh scripts. First you should set your TSC frequency as the `MHZ` variable in the environment:
+You can run all the test required for generating the data used in the post using the ./data.sh scripts. First you should set your TSC (time stamp counter as read by `rstsc`) frequency as the `MHZ` variable in the environment. The benchmark application itself has detection of the TSC frequency, you can check the value on your system by running:
+
+    ./bench dummy |& grep 'tsc freq'
+
+Set that value as `MHZ` in your environment, like so:
 
     export MHZ=3200
 
