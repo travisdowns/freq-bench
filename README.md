@@ -6,6 +6,14 @@ This benchmark relies heavily on the [`perf_events`](http://man7.org/linux/man-p
 
     make
 
+## Checking perf_event_paranoid
+
+To run these tests you need a `/proc/sys/kernel/perf_event_paranoid` setting of 1 or less, or to be running as root. Many modern system are setting this to 3, a very conservative setting. If the value on your system is greater than 1, you can either set it (until reboot) to 1 like so:
+
+    echo 1 | sudo tee /proc/sys/kernel/perf_event_paranoid
+
+Or you can run the tests as root (e.g., `sudo ./bench)
+
 ## Running
 
 The benchmark includes several tests. You can run them all like this (this will crash pretty quickly on platforms without AVX-512):
