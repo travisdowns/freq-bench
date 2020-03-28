@@ -39,6 +39,12 @@ Set that value as `MHZ` in your environment, like so:
 
     export MHZ=3200
 
+Next, choose a prefix for your result files to identify them, this defaults to `test` if you don't set any:
+
+    export PREFIX=blah
+    # this second prefix is used specificaly for the voltage related tests
+    export PREFIXV=blah
+
 Then you can collect most of the data like this:
 
     scripts/data.sh
