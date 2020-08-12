@@ -118,7 +118,7 @@ void name##_##rep(bench_args args) {           \
         "vpor %ymm0, %ymm0, %ymm0\n\t"        \
         ".rept " #rep "\n\t"                        \
         instr                  \
-        ".endr 4\n\t"                         \
+        ".endr\n\t"                         \
         ".endr\n\t"                           \
     );                                        \
 }                                             \
