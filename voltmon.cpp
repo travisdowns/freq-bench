@@ -63,11 +63,14 @@ int main(int argc, char** argv) {
     if (argc >= 2 && strcmp("--bench", argv[1]) == 0) {
         int iters = (argc == 3 ? atoi(argv[2]) : 10000);
         printf("Running benchmarks with %d iterations\n", iters);
-        // bench(iters, false);
-        // bench(iters, false);
+        bench(iters, false);
+        bench(iters, false);
         bench(iters, true);
         bench(iters, true);
-        // bench(iters, false);
+        bench(iters, false);
+        bench(iters, false);
+        bench(iters, true);
+        bench(iters, true);
         exit(0);
     }
 

@@ -348,6 +348,7 @@ if (args.alpha):
     # https://stackoverflow.com/questions/12848808/set-legend-symbol-opacity-with-matplotlib
     for lh in leg.legendHandles:
         lh._legmarker.set_alpha(1)
+        lh.set_alpha(1)
 
 
 vprint("all axes ", plt.gcf().get_axes())

@@ -1,10 +1,7 @@
 
-#define ENABLE_TIMER 1
-
 #include <assert.h>
 #include "common-cxx.hpp"
 #include "env.hpp"
-#include "huge-alloc.h"
 #include "impl-list.hpp"
 #include "misc.hpp"
 #include "msr-access.h"
@@ -12,10 +9,7 @@
 #include "pcg-cpp/pcg_random.hpp"
 #include "perf-timer-events.hpp"
 #include "perf-timer.hpp"
-#include "randutil.hpp"
-#include "string-instrument.hpp"
 #include "tsc-support.hpp"
-#include "xxHash/xxhash.h"
 
 #include <inttypes.h>
 #include <stdio.h>
@@ -62,31 +56,6 @@ void flushmem(const void* p, size_t size) {
         _mm_clflush((char*)p + i);
     }
     _mm_mfence();
-}
-
-/**
- * Allocate size elems, using huge_alloc which reports on THP stuff.
- *
- * The optional offset specifies the offset relative to a 2 MiB page,
- * helpful to ensure different pointers have a specific relative
- * alignment.
- */
-char* alloc(size_t size, size_t offset = 0) {
-    size_t fullsize = size + offset;
-    char* p         = (char*)huge_alloc(fullsize * sizeof(char), false);  // !summary);
-    return p + offset;
-}
-
-/**
- * Allocate size elements and fill them with the sequence 0, 1, 2 ...
- */
-HEDLEY_NEVER_INLINE
-char_span alloc_random(size_t size, size_t offset = 0) {
-    std::mt19937_64 rng;
-    std::uniform_int_distribution<char> dist;
-    char* a = alloc(size, offset);
-    std::generate(a, a + size, [&]() { return dist(rng); });
-    return {a, size};
 }
 
 void pinToCpu(int cpu) {
@@ -148,14 +117,12 @@ struct iprinter;
 
 struct RunArgs {
     double busy;
-    char_span input;
-    char* output;
     size_t repeat_count, iters;
 
     /**
      * Get the intersect args appropriate for the given iteration.
      */
-    bench_args get_args() const { return {output, input.data(), input.size()}; }
+    bench_args get_args() const { return {}; }
 };
 
 class StampConfig;
@@ -496,8 +463,6 @@ struct BenchResults {
     uint64_t start_tsc;
 
     BenchResults() = delete;
-
-    size_t ssize() const { return args.input.size(); }
 };
 
 /** thrown by get_value if a column failed for some reason */
@@ -730,164 +695,6 @@ ColList get_all_columns() {
     return ret;
 }
 
-struct iprinter {
-    /** called once before any output */
-    virtual void print_start() {}
-
-    /** called once after all output */
-    virtual void print_end() {}
-
-    /** called once before each row */
-    virtual void row_start(const RunArgs& args) {}
-
-    /** called once after each row */
-    virtual void row_end() {}
-
-    virtual void print_one(const test_description* test,
-                           const std::vector<BenchResults>& results,
-                           const ColList& columns,
-                           const ColList& post_columns) = 0;
-};
-
-struct stdout_printer : iprinter {
-
-    std::string sizestr;
-
-    virtual void row_start(const RunArgs& args) override {
-        sizestr = std::to_string(args.input.size());
-    }
-
-    virtual void print_one(const test_description* test,
-                           const std::vector<BenchResults>& results,
-                           const ColList& columns,
-                           const ColList& post_columns) override {
-        printf("\nsize: %s -----------------------------\n", sizestr.c_str());
-
-        if (!summary) {
-            fprintf(stdout, "Running test %s : %s\n", test->name, test->desc);
-        }
-
-        printf("  iter");
-        for (auto col : columns) {
-            printf(" |%*s", col->col_width(), col->get_header());
-        }
-        printf("\n");
-
-        std::vector<double> minvals(columns.size(), std::numeric_limits<double>::quiet_NaN());
-        std::vector<double> maxvals(columns.size(), std::numeric_limits<double>::quiet_NaN());
-        // , maxvals
-        for (size_t repeat = 0; repeat < results.size(); repeat++) {
-            auto& result = results.at(repeat);
-
-            printf("%6zu  ", repeat);
-
-            for (size_t c = 0; c < columns.size(); c++) {
-                auto& column = columns[c];
-                // column->print(stdout, result);
-                try {
-                    double val = column->get_final_value(result);
-                    column->print(stdout, val);
-                    printf("  ");
-                    if (!std::isnan(val)) {
-                        minvals[c] = std::fmin(minvals[c], val);
-                        maxvals[c] = std::fmax(maxvals[c], val);
-                    }
-                } catch (const ColFailed& failed) {
-                    column->print(stdout, failed.colval_);
-                }
-            }
-            printf("\n");
-
-            // print any "big" post stuff
-            for (auto post : post_columns) {
-                post->print(stdout, result);
-            }
-        }
-
-        auto printline = [&columns](const char* what, const std::vector<double>& vals) {
-            printf("%6s  ", what);
-            for (size_t c = 0; c < columns.size(); c++) {
-                columns[c]->print(stdout, vals[c]);
-                printf("  ");
-            }
-            printf("\n");
-        };
-
-        printline("min", minvals);
-        printline("max", maxvals);
-
-        printf("\n ----------------------------------------\n");
-    }
-};
-
-struct csv_printer : iprinter {
-
-    std::vector<test_description> tests;
-    ColList columns;
-
-    csv_printer(std::vector<test_description> tests, const ColList& columns) : tests{std::move(tests)}, columns{columns} {}
-
-    virtual void print_start() override {
-        printf("size");
-        for (auto& test : tests) {
-            for (auto col : columns) {
-                for (const char *aggr : {"median", "min", "max"}) {
-                    printf(",%s %s (%s)", test.name, col->get_header(), aggr);
-                }
-            }
-        }
-        printf("\n");
-    }
-
-    virtual void row_start(const RunArgs& args) override {
-        // printf("%s", firstcol.c_str());
-        printf("%.3f", args.busy);
-    }
-
-    virtual void row_end() override {
-        printf("\n");
-    }
-
-    virtual void print_one(const test_description* test,
-                           const std::vector<BenchResults>& results,
-                           const ColList& columns,
-                           const ColList& post_columns) override {
-
-        // indexed by [column][result #]
-        std::vector<std::vector<double>> allvals(columns.size());
-
-        for (size_t c = 0; c < columns.size(); c++) {
-            auto& column = columns[c];
-            for (auto& result : results) {
-                try {
-                    double val = column->get_final_value(result);
-                    if (std::isnan(val)) {
-                        throw ColFailed("nan");
-                    }
-                    allvals.at(c).push_back(val);
-                } catch (const ColFailed& failed) {
-                    fprintf(stderr, "Warning column %s failed, csv output might be incomplete", column->get_header());
-                    // column->print(stdout, failed.colval_);
-                }
-            }
-        }
-
-        for (auto& colresults : allvals) {
-            assert(colresults.size() == allvals.front().size());
-            std::sort(colresults.begin(), colresults.end());
-        }
-
-
-        for (auto& colresults : allvals) {
-            printf(",%.6f", colresults.at(colresults.size() / 2)); // median
-            printf(",%.6f", colresults.front());                   // min
-            printf(",%.6f", colresults.back());                    // max
-        }
-
-
-    }
-};
-
 void hot_wait(size_t cycles) {
     volatile int x = 0;
     (void)x;
@@ -906,8 +713,9 @@ void runOne(const test_description* test,
             const ColList& columns,
             const ColList& post_columns,
             const RunArgs& bargs) {
+
     /* the main benchmark loop */
-    std::vector<BenchResults> result_vector; //(bargs.repeat_count);
+    std::vector<BenchResults> result_vector;
 
     auto args = bargs.get_args();
 
@@ -1114,9 +922,6 @@ int main(int argc, char** argv) {
     // run the whole test repeat_count times, each of which calls the test function iters times
     unsigned repeat_count = 3;
 
-    char_span input = alloc_random(size_stop, 0);
-    char* output    = alloc(size_stop, 0);
-
     bool freq_forced = true;
     tsc_freq = getenv_generic<double>("MHZ", 0.0) * 1000000;
     if (tsc_freq == 0.0) {
@@ -1131,10 +936,6 @@ int main(int argc, char** argv) {
         fprintf(stderr, "start size   : %10zu bytes\n", size_start);
         fprintf(stderr, "stop size    : %10zu bytes\n", size_stop);
         fprintf(stderr, "inc size     : %10zu bytes\n", size_inc);
-        fprintf(stderr, "input align  : %10zu\n", get_alignment(input.data()));
-        fprintf(stderr, "input hash   : %10x\n", XXH32(input.data(), input.size() * sizeof(char), 0));
-        fprintf(stderr, "output align : %10zu\n", get_alignment(output));
-        fprintf(stderr, "rel align    : %10zu\n", relalign(input.data(), output));
         fprintf(stderr, "tsc freq     : %10.1f MHz%s\n", tsc_freq / 1000000., freq_forced ? " (forced)" : "");
         fprintf(stderr, "test period  : %10.3f us\n", 1000000. * test_cycles       / tsc_freq);
         fprintf(stderr, "duty period  : %10.3f us\n", 1000000. * period_cycles     / tsc_freq);
@@ -1148,11 +949,7 @@ int main(int argc, char** argv) {
                 columns.size(), (size_t)clock() * 1000u / CLOCKS_PER_SEC);
     }
 
-    size_t size = 4096;
-    assert(size <= size_stop);
-    // for (size_t size = size_start; size <= size_stop; size += size_inc) {
-    RunArgs args{0., input.first(size), output, repeat_count, iters};
-    // printer->row_start(args);
+    RunArgs args{0., repeat_count, iters};
     for (auto t : tests) {
         runOne(&t, config, columns, post_columns, args);
     }

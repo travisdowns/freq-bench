@@ -10,22 +10,6 @@
 #include <string.h>
 #include <numeric>
 
-void memcpy_stdlib(bench_args args) {
-    memcpy(args.dest, args.source, args.size);
-}
-
-void memmove_stdlib(bench_args args) {
-    memmove(args.dest, args.source, args.size);
-}
-
-void repmovsb(bench_args args) {
-    asm volatile ("rep movsb\n"
-        : "+S"(args.source), "+D"(args.dest), "+c"(args.size)
-        :
-        : "memory"
-    );
-}
-
 void vporxmm(bench_args args) {
     asm volatile ("vpor %xmm0, %xmm0, %xmm0\n");
 }
@@ -134,7 +118,7 @@ void name##_##rep(bench_args args) {           \
         "vpor %ymm0, %ymm0, %ymm0\n\t"        \
         ".rept " #rep "\n\t"                        \
         instr                  \
-        ".endr 4\n\t"                         \
+        ".endr\n\t"                         \
         ".endr\n\t"                           \
     );                                        \
 }                                             \

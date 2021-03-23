@@ -40,17 +40,19 @@ function plot {
     "$PLOTPY" "${input[@]}" "${OUT[@]}" --tight --ylabel "$3" --xlabel "$4" --title "$title" "${@:6}"
 }
 
-: ${PREFIX:=skx}
-: ${PREFIXV:=skl} # only for "volts" plots
+: ${PREFIX:=test}  # usually skx
+: ${PREFIXV:=test} # usually skl only for "volts" plots
+
+echo "Using PREFIX=$PREFIX, PREFIXV=$PREFIXV"
 
 xcols_arg="--xcols-by-name us,us_1,us_2"
 ycols_arg="--cols-by-name Unhalt_GHz,Unhalt_GHz_1,Unhalt_GHz_2"
 
 plot "$PREFIX-vporymm_vz-{0..2}.csv" "fig-vporvz256" "Frequency (GHz)" "Time (us)" "256-bit VPOR Frequency Transitions" \
-   $xcols_arg $ycols_arg --ylim 0 4
+   $xcols_arg $ycols_arg --ylim 0 4 --alpha 0.6
 
 plot "$PREFIX-vporzmm_vz-{0..2}.csv" "fig-vporvz512" "Frequency (GHz)" "Time (us)" "512-bit VPOR Frequency Transitions" \
-   $xcols_arg $ycols_arg --ylim 0 4
+   $xcols_arg $ycols_arg --ylim 0 4 --alpha 0.6
 
 plot "$PREFIX-vporzmm_vz-{0..2}.csv" "fig-vpor-zoomed" "Frequency (GHz)" "Time (us)" "512-bit VPOR Transition Closeup" --marker=. \
    --patches \
@@ -59,13 +61,13 @@ plot "$PREFIX-vporzmm_vz-{0..2}.csv" "fig-vpor-zoomed" "Frequency (GHz)" "Time (
     $xcols_arg $ycols_arg --ylim 2.7 3.3 --xlim 14950 15050
 
 plot "$PREFIX-vporymm-{0..2}.csv" "fig-vpor256" "Frequency (GHz)" "Time (us)" "256-bit VPOR Transitions (no vzeroupper)" \
-    $xcols_arg $ycols_arg --ylim 0 4
+    $xcols_arg $ycols_arg --ylim 0 4 --alpha 0.6
 
 plot "$PREFIX-vporzmm-{0..2}.csv" "fig-vpor512" "Frequency (GHz)" "Time (us)" "512-bit VPOR Transitions (no vzeroupper)" \
-    $xcols_arg $ycols_arg --ylim 0 4
+    $xcols_arg $ycols_arg --ylim 0 4 --alpha 0.6
 
 plot "$PREFIX-vporzmm_vz100-{0..2}.csv" "fig-vporvz512-ipc" "Frequency (GHz)" "Time (us)" "512-bit VPOR Frequency Transitions" \
-    $xcols_arg $ycols_arg --cols2-by-name "IPC" --ylim 0 4 --ylabel2 IPC
+    $xcols_arg $ycols_arg --cols2-by-name "IPC" --ylim 0 4 --ylabel2 IPC --alpha 0.6
 
 plot "$PREFIX-vporxmm_vz100-{0..2}.csv" "fig-ipc-zoomed-xmm" "Frequency (GHz)" "Time (us)" "128-bit VPOR Transition Closeup" \
     $xcols_arg $ycols_arg --cols2-by-name "IPC" --ylim 2.7 3.3 --xlim 14950 15150 --ylabel2 IPC --ylim2 0 1.2 \
@@ -84,7 +86,7 @@ plot "$PREFIX-vporzmm_vz100-{0..2}.csv" "fig-ipc-zoomed-zmm" "Frequency (GHz)" "
     { "xy"  : [15020, 0], "width" :80, "height" : 4,"color" : "darkturquoise"} ]'
 
 # 8 us version of zmm lat
-plot "$PREFIX-vporzmm_vz100-10us-{0..2}.csv" "fig-ipc-zoomed-zmm-8us" "Frequency (GHz)" "Time (us)" "512-bit VPOR Transition (8 us sampling)" \
+plot "$PREFIX-vporzmm_vz100-8us-{0..2}.csv" "fig-ipc-zoomed-zmm-8us" "Frequency (GHz)" "Time (us)" "512-bit VPOR Transition (8 us sampling)" \
     $xcols_arg $ycols_arg --cols2-by-name "IPC" --ylim 2.7 3.3 --xlim 14950 15150 --ylabel2 IPC --ylim2 0 1.2 \
     --marker=. --marker2=. --legend-loc='upper right'
 
@@ -100,9 +102,8 @@ plot "$PREFIX-vpermdzmm_vz100-{0..2}.csv" "fig-vpermd-ipc-zoomed-tput" "Frequenc
     $xcols_arg $ycols_arg --cols2-by-name "IPC" --ylim 2.7 3.3 --xlim 14950 15150 --ylabel2 IPC --ylim2 0 2 \
     --marker=. --marker2=. --legend-loc='upper right' --patches \
     '[{ "xy": [15000, 0], "width" : 9, "height" : 4,"color" : "thistle"},
-    { "xy"  : [15009, 0], "width" :11, "height" : 4,"color" : "peachpuff"},
-    { "xy"  : [15020, 0], "width" : 9.5, "height" : 4,"color" : "darkseagreen"},
-    { "xy"  : [15029.5, 0], "width" :70.5, "height" : 4,"color" : "darkturquoise"} ]'
+    { "xy"  : [15009, 0], "width" : 11, "height" : 4,"color" : "peachpuff"},
+    { "xy"  : [15020, 0], "width" : 80, "height" : 4,"color" : "darkturquoise"} ]'
 
 #for p in $period_list; do
 for p in 760; do
@@ -110,18 +111,15 @@ for p in 760; do
         $xcols_arg $ycols_arg --cols2-by-name "IPC" --xlim 7550 7700 --ylim 2.7 3.3 --ylabel2 IPC --ylim2 0 1.2 --marker=. --marker2=.
 done
 
-for i in 0 1 2; do
-plot "$PREFIXV-vporymm_vz100-volts-$i.csv" "fig-volts256-$i" "Frequency (GHz)" "Time (us)" "Voltage in Type 1 Throttling" \
-    --xcols-by-name "us" --cols-by-name "paytime" --cols2-by-name "volts" --ylabel "Payload Time (cycles)" --ylabel2 "Volts (V)" \
-    --xlim 14990 15150 --ylim2 0.95 0.97 --marker=. --marker2=.
-done
-
-plot "$PREFIX-vporymm_vz-{0..2}.csv" "fig-vporvz256" "Frequency (GHz)" "Time (us)" "256-bit VPOR Frequency Transitions" \
-   $xcols_arg $ycols_arg --ylim 0 4
-
 # spread specturm clocking zoom
 plot "$PREFIX-vporymm_vz-1.csv" "fig-ssc" "Frequency (GHz)" "Time (us)" "Spread Spectrum Clocking Closeup" \
    --xcols-by-name us --cols-by-name "Unhalt_GHz" --ylim 3.15 3.25 --xlim 3600 4000
 
+for i in 0 1 2; do
+plot "$PREFIXV-vporymm_vz100-volts-$i.csv" "fig-volts256-$i" "Frequency (GHz)" "Time (us)" "Voltage Transition (256-bit)" \
+    --xcols-by-name "us" --cols-by-name "paytime" --cols2-by-name "volts" --ylabel "Payload Time (cycles)" --ylabel2 "Volts (V)" \
+    --xlim 14990 15150 --ylim2 0.95 0.97 --marker=. --marker2=. --patches \
+    '[{ "xy": [15000, -1000], "width" : 9.7, "height" : 6000,"color" : "thistle"}]'
+done
 
 
