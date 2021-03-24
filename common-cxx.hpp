@@ -4,6 +4,8 @@
 /* to align with C++20 std::span */
 #define span_CONFIG_INDEX_TYPE size_t
 
+#include <stdexcept> // needed by span.hpp
+
 #include "hedley.h"
 #include "inttypes.h"
 #include "nonstd/span.hpp"
