@@ -6,7 +6,6 @@
 #include "misc.hpp"
 #include "msr-access.h"
 #include "opt-control.h"
-#include "pcg-cpp/pcg_random.hpp"
 #include "perf-timer-events.hpp"
 #include "perf-timer.hpp"
 #include "tsc-support.hpp"
