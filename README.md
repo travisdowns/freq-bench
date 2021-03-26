@@ -1,8 +1,10 @@
-This is the supporting benchmark for the post at TODO link.
+This is the supporting benchmark for the blog post [_Gathering Intel on Intel AVX-512 Transitions_](https://travisdowns.github.io/blog/2020/01/17/avxfreq1.html).
 
 This benchmark relies heavily on the [`perf_events`](http://man7.org/linux/man-pages/man2/perf_event_open.2.html) subsystem and so only runs on Linux.
 
 ## Build
+
+This project provides a makefile and building should be as simple as:
 
     make
 
