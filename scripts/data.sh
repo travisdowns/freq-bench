@@ -1,7 +1,12 @@
 #!/bin/bash
 set -e
 
-# configure the following values for your system
+# This poorly named variable should be set to the
+# TSC (time stamp counter) frequency of your system.
+# You can determine this by running:
+# ./bench dummy > /dev/null
+# and looking at the 'tsc freq' line. Use that value
+# as MHZ.
 export MHZ=${MHZ:=3192}
 
 # https://stackoverflow.com/a/12694189
