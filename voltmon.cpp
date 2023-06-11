@@ -82,7 +82,7 @@ int main(int argc, char** argv) {
     }
 
     if (maxcpu == 0) {
-        printf("Wasn't able to read MSR on any CPUs, boo (try running with sudo?)! Exiting...");
+        printf("Wasn't able to read MSR on any CPUs, boo (try running with sudo?)!\nExiting...\n");
         exit(1);
     }
 
